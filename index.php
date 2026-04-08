@@ -1,11 +1,11 @@
 <?php
+// 1. Incluimos la conexión a la base de datos
 include 'conexion.php';
 
-// Solo actuamos si se envían datos por POST
+// 2. Solo procesamos si el formulario se envió por el método POST
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    // Recogemos los datos usando el operador de fusión de nulidad (??) 
-    // Esto evita errores si algún campo no llega en el POST
+    // 3. Recogemos los datos y los limpiamos para evitar errores de SQL (SQL Injection)
     $nombre = mysqli_real_escape_string($conexion, $_POST['nombre'] ?? '');
     $apellido = mysqli_real_escape_string($conexion, $_POST['apellido'] ?? '');
     $email = mysqli_real_escape_string($conexion, $_POST['email'] ?? '');
@@ -14,24 +14,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $problema = mysqli_real_escape_string($conexion, $_POST['problema'] ?? '');
     $mensaje = mysqli_real_escape_string($conexion, $_POST['mensaje'] ?? '');
 
-    // Definimos el origen (útil si luego creas AvantService, AvantTienda, etc.)
-    $origen = "AVANTSTORE";
+    // 4. Detectamos el origen enviado desde el input 'hidden' del HTML
+    // Si no se envía nada, por defecto guardará 'AVANTSTORE'
+    $origen = mysqli_real_escape_string($conexion, $_POST['origen_sitio'] ?? 'AVANTSTORE');
 
-    // Preparamos la consulta SQL
+    // 5. Preparamos la sentencia de inserción
     $sql = "INSERT INTO contactos (nombre, apellido, email, telefono, producto, problema, mensaje, origen) 
             VALUES ('$nombre', '$apellido', '$email', '$telefono', '$producto', '$problema', '$mensaje', '$origen')";
 
+    // 6. Ejecutamos la consulta
     if (mysqli_query($conexion, $sql)) {
-        // ÉXITO: Redirigimos al usuario a la página principal.
-        // He añadido 'exit' después del header para detener la ejecución del script.
-        header("Location: ../index.html?status=success#contacto");
+        // ÉXITO: Redirigimos de vuelta a la tienda con un parámetro de éxito
+        header("Location: store.html?status=success#contacto");
         exit();
     } else {
-        // ERROR: Mostramos el error (en producción esto deberías guardarlo en un log en vez de mostrarlo)
-        echo "Error al guardar los datos: " . mysqli_error($conexion);
+        // ERROR: Mostramos el error exacto de MySQL si algo falla
+        echo "Error en la base de datos: " . mysqli_error($conexion);
     }
 }
 
-// Cerramos la conexión
+// 7. Cerramos la conexión al terminar
 mysqli_close($conexion);
 ?>

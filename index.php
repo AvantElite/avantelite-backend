@@ -4,24 +4,34 @@ include 'conexion.php';
 // Solo actuamos si se envían datos por POST
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    // Recogemos y limpiamos los datos para evitar inyecciones básicos
-    $nombre = mysqli_real_escape_string($conexion, $_POST['nombre']);
-    $apellido = mysqli_real_escape_string($conexion, $_POST['apellido']);
-    $email = mysqli_real_escape_string($conexion, $_POST['email']);
-    $telefono = mysqli_real_escape_string($conexion, $_POST['telefono']);
-    $producto = mysqli_real_escape_string($conexion, $_POST['producto']);
-    $problema = mysqli_real_escape_string($conexion, $_POST['problema']);
-    $mensaje = mysqli_real_escape_string($conexion, $_POST['mensaje']);
+    // Recogemos los datos usando el operador de fusión de nulidad (??) 
+    // Esto evita errores si algún campo no llega en el POST
+    $nombre = mysqli_real_escape_string($conexion, $_POST['nombre'] ?? '');
+    $apellido = mysqli_real_escape_string($conexion, $_POST['apellido'] ?? '');
+    $email = mysqli_real_escape_string($conexion, $_POST['email'] ?? '');
+    $telefono = mysqli_real_escape_string($conexion, $_POST['telefono'] ?? '');
+    $producto = mysqli_real_escape_string($conexion, $_POST['producto'] ?? 'General');
+    $problema = mysqli_real_escape_string($conexion, $_POST['problema'] ?? '');
+    $mensaje = mysqli_real_escape_string($conexion, $_POST['mensaje'] ?? '');
 
-    $sql = "INSERT INTO contactos (nombre, apellido, email, telefono, producto, problema, mensaje) 
-            VALUES ('$nombre', '$apellido', '$email', '$telefono', '$producto', '$problema', '$mensaje')";
+    // Definimos el origen (útil si luego creas AvantService, AvantTienda, etc.)
+    $origen = "AVANTSTORE";
+
+    // Preparamos la consulta SQL
+    $sql = "INSERT INTO contactos (nombre, apellido, email, telefono, producto, problema, mensaje, origen) 
+            VALUES ('$nombre', '$apellido', '$email', '$telefono', '$producto', '$problema', '$mensaje', '$origen')";
 
     if (mysqli_query($conexion, $sql)) {
-        // Si sale bien, redirigimos de vuelta con un mensaje de éxito
-        header("Location: ../index.html?enviado=exito");
+        // ÉXITO: Redirigimos al usuario a la página principal.
+        // He añadido 'exit' después del header para detener la ejecución del script.
+        header("Location: ../index.html?status=success#contacto");
+        exit();
     } else {
-        echo "Error: " . $sql . "<br>" . mysqli_error($conexion);
+        // ERROR: Mostramos el error (en producción esto deberías guardarlo en un log en vez de mostrarlo)
+        echo "Error al guardar los datos: " . mysqli_error($conexion);
     }
 }
+
+// Cerramos la conexión
 mysqli_close($conexion);
 ?>

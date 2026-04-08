@@ -2,7 +2,7 @@
 $host = "localhost";
 $user = "root";
 $pass = ""; // En WampServer por defecto está vacío
-$db = "avantservice";
+$db = "backendavant";
 
 $conexion = mysqli_connect($host, $user, $pass, $db);
 

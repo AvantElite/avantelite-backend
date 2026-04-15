@@ -12,8 +12,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') { http_response_code(200); exit();
 include 'conexion.php';
 
 // ── Params ────────────────────────────────────────────────────────────────────
-$range       = in_array($_GET['range'] ?? '30', ['7','30','90']) ? (int)$_GET['range'] : 30;
-$granularity = in_array($_GET['gran']  ?? 'day', ['day','week','month']) ? $_GET['gran'] : 'day';
+$range_str   = $_GET['range'] ?? '30';
+$range       = in_array($range_str, ['7','30','90']) ? (int)$range_str : 30;
+$gran_str    = $_GET['gran']  ?? 'day';
+$granularity = in_array($gran_str, ['day','week','month']) ? $gran_str : 'day';
 
 $dateGroup = [
     'day'   => "DATE_FORMAT(created_at, '%d %b')",

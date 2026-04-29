@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat con AvantService</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0f19;
+      --card: #0f1729;
+      --border: rgba(255,255,255,0.08);
+      --cyan: #00f0ff;
+      --blue: #0057ff;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --bubble-client: rgba(0,87,255,0.18);
+      --bubble-tecnico: rgba(0,240,255,0.10);
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(15,23,42,0.8);
+      backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    header .logo { font-size: 1.2rem; font-weight: 800; }
+    header .logo span { color: var(--cyan); }
+    header .badge {
+      font-size: 0.7rem;
+      background: rgba(0,240,255,0.1);
+      border: 1px solid rgba(0,240,255,0.25);
+      color: var(--cyan);
+      padding: 2px 10px;
+      border-radius: 99px;
+      letter-spacing: 0.05em;
+    }
+
+    .container { max-width: 700px; margin: 0 auto; width: 100%; padding: 32px 20px; flex: 1; display: flex; flex-direction: column; gap: 20px; }
+
+    .presupuesto-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .presupuesto-card .head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--cyan);
+      font-weight: 600;
+    }
+    .presupuesto-card .body { padding: 20px; }
+    .lineas-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .lineas-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.04); color: var(--muted); }
+    .lineas-table td:last-child { text-align: right; font-weight: 600; color: var(--text); }
+    .lineas-table tr:last-child td { border: none; }
+    .total-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; background: rgba(0,240,255,0.04); border-top: 1px solid rgba(0,240,255,0.12); }
+    .total-label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .total-price { font-size: 1.5rem; font-weight: 800; color: var(--cyan); }
+
+    .chat-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      min-height: 400px;
+    }
+    .chat-card .head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--cyan);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .online-dot { width: 7px; height: 7px; border-radius: 50%; background: #10b981; box-shadow: 0 0 6px #10b981; }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-height: 280px;
+      max-height: 420px;
+    }
+    .msg { display: flex; flex-direction: column; max-width: 72%; }
+    .msg.cliente { align-self: flex-end; align-items: flex-end; }
+    .msg.tecnico { align-self: flex-start; align-items: flex-start; }
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 14px;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      word-break: break-word;
+    }
+    .msg.cliente .bubble { background: var(--bubble-client); border: 1px solid rgba(0,87,255,0.3); border-bottom-right-radius: 4px; }
+    .msg.tecnico .bubble { background: var(--bubble-tecnico); border: 1px solid rgba(0,240,255,0.15); border-bottom-left-radius: 4px; }
+    .msg-meta { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+
+    .no-msgs { text-align: center; color: var(--muted); font-size: 0.85rem; padding: 40px 0; }
+
+    .chat-input-area {
+      padding: 16px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 10px;
+      background: rgba(0,0,0,0.2);
+    }
+    .chat-input {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      resize: none;
+      outline: none;
+      font-family: inherit;
+      max-height: 100px;
+    }
+    .chat-input:focus { border-color: rgba(0,240,255,0.3); }
+    .chat-input::placeholder { color: var(--muted); }
+    .send-btn {
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.85rem;
+      padding: 0 20px;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+    .send-btn:hover { opacity: 0.85; }
+    .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .attach-btn {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 1.1rem;
+      padding: 0 14px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      white-space: nowrap;
+      display: flex; align-items: center;
+    }
+    .attach-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+    .attach-preview {
+      padding: 8px 20px;
+      background: rgba(0,240,255,0.05);
+      border-top: 1px solid rgba(0,240,255,0.1);
+      font-size: 0.78rem;
+      color: var(--cyan);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .attach-preview span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .attach-preview button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 1rem; padding: 0; }
+    .msg-archivo { margin-top: 6px; }
+    .msg-archivo img { max-width: 220px; max-height: 180px; border-radius: 8px; display: block; cursor: pointer; }
+    .msg-archivo a { font-size: 0.82rem; color: var(--cyan); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+    .msg-archivo a:hover { text-decoration: underline; }
+
+    .error-state, .loading-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .error-state { color: #fda4af; }
+
+    .login-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 36px 32px;
+      max-width: 420px;
+      margin: auto;
+      width: 100%;
+    }
+    .login-card h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 6px; }
+    .login-card p { font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+    .login-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .login-field label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); font-weight: 600; }
+    .login-field input {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 0.92rem;
+      padding: 10px 14px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+    .login-field input:focus { border-color: rgba(0,240,255,0.35); }
+    .login-field input::placeholder { color: var(--muted); }
+    .login-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 12px;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: opacity 0.2s;
+    }
+    .login-btn:hover { opacity: 0.85; }
+    .login-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .login-error { font-size: 0.82rem; color: #fda4af; margin-top: 12px; text-align: center; min-height: 18px; }
+    .chat-closed-bar {
+      padding: 14px 20px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+      background: rgba(0,0,0,0.2);
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>Avant</span>Service</div>
+  <span class="badge">Chat privado</span>
+</header>
+
+<div class="container" id="root">
+  <div class="loading-state">Cargando…</div>
+</div>
+
+<script>
+(function () {
+  var API = 'http://localhost:3000';
+  var token = new URLSearchParams(window.location.search).get('token');
+  var root = document.getElementById('root');
+  var pollInterval = null;
+
+  if (!token) {
+    root.innerHTML = '<div class="error-state">Enlace inválido. No se encontró ningún presupuesto.</div>';
+    return;
+  }
+
+  var presupuestoData = null;
+  var clienteNombre = '';
+  var portalToken = null;
+
+  // Mostrar pantalla de login
+  root.innerHTML =
+    '<div class="login-card">' +
+      '<h2>Acceder al chat</h2>' +
+      '<p>Introduce tu nombre y el correo con el que realizaste la solicitud para acceder a tu presupuesto y chat privado.</p>' +
+      '<div class="login-field"><label>Nombre</label><input type="text" id="login-nombre" placeholder="Tu nombre" autocomplete="name"></div>' +
+      '<div class="login-field"><label>Correo electrónico</label><input type="email" id="login-email" placeholder="tu@email.com" autocomplete="email"></div>' +
+      '<button class="login-btn" id="login-btn">Acceder →</button>' +
+      '<div class="login-error" id="login-error"></div>' +
+    '</div>';
+
+  document.getElementById('login-btn').addEventListener('click', doLogin);
+  document.getElementById('login-email').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('login-nombre').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+
+  function doLogin() {
+    var nombre = document.getElementById('login-nombre').value.trim();
+    var email  = document.getElementById('login-email').value.trim().toLowerCase();
+    var errEl  = document.getElementById('login-error');
+    var btn    = document.getElementById('login-btn');
+
+    if (!nombre) { errEl.textContent = 'Introduce tu nombre.'; return; }
+    if (!email)  { errEl.textContent = 'Introduce tu correo electrónico.'; return; }
+
+    btn.disabled = true;
+    errEl.textContent = '';
+
+    fetch(API + '/api/portal/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token, email: email })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (!data.success) {
+          errEl.textContent = data.error || 'Acceso denegado.';
+          btn.disabled = false;
+          return;
+        }
+        portalToken = data.portal_token;
+        clienteNombre = nombre;
+        presupuestoData = data.presupuesto;
+        render(data.presupuesto);
+      })
+      .catch(function() {
+        errEl.textContent = 'No se pudo conectar con el servidor.';
+        btn.disabled = false;
+      });
+  }
+
+  function fmt(n) { return parseFloat(n).toFixed(2).replace('.', ',') + ' €'; }
+  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function timeStr(ts) {
+    var d = new Date(ts);
+    return d.toLocaleDateString('es-ES', {day:'2-digit',month:'short'}) + ' ' +
+           d.toLocaleTimeString('es-ES', {hour:'2-digit',minute:'2-digit'});
+  }
+
+  function render(data) {
+    var lineasHtml = (data.lineas || []).filter(function(l){ return l.descripcion; }).map(function(l) {
+      return '<tr><td>' + esc(l.descripcion) + '</td><td>' + (l.precio ? fmt(l.precio) : 'A consultar') + '</td></tr>';
+    }).join('');
+
+    root.innerHTML =
+      '<div class="presupuesto-card">' +
+        '<div class="head">Resumen del presupuesto</div>' +
+        '<div class="body">' +
+          (data.mensaje ? '<p style="color:var(--muted);font-size:0.88rem;margin-bottom:14px;line-height:1.6;">' + esc(data.mensaje) + '</p>' : '') +
+          '<table class="lineas-table">' + lineasHtml + '</table>' +
+        '</div>' +
+        '<div class="total-row"><span class="total-label">Total estimado (IVA inc.)</span><span class="total-price">' + fmt(data.total) + '</span></div>' +
+      '</div>' +
+      '<div class="chat-card">' +
+        '<div class="head"><div class="online-dot"></div>Chat con el técnico</div>' +
+        '<div class="messages" id="messages"><div class="no-msgs">Aún no hay mensajes. ¡Escríbenos!</div></div>' +
+        '<div id="attach-preview-bar" style="display:none" class="attach-preview"><span id="attach-name"></span><button onclick="clearAttach()" title="Quitar">✕</button></div>' +
+        '<div id="chat-closed-bar" style="display:none" class="chat-closed-bar">🔒 El técnico ha cerrado este chat. Solo lectura.</div>' +
+        '<div id="chat-input-area" class="chat-input-area">' +
+          '<input type="file" id="file-input" style="display:none" accept="image/*,.pdf,.doc,.docx,.txt,.zip">' +
+          '<button class="attach-btn" id="attach-btn" title="Adjuntar archivo">📁</button>' +
+          '<textarea class="chat-input" id="chat-input" rows="1" placeholder="Escribe tu mensaje…"></textarea>' +
+          '<button class="send-btn" id="send-btn">Enviar</button>' +
+        '</div>' +   // chat-input-area
+      '</div>';    // chat-card
+
+    loadMessages();
+    pollInterval = setInterval(loadMessages, 4000);
+
+    document.getElementById('send-btn').addEventListener('click', sendMessage);
+    document.getElementById('chat-input').addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+    document.getElementById('attach-btn').addEventListener('click', function() {
+      document.getElementById('file-input').click();
+    });
+    document.getElementById('file-input').addEventListener('change', function() {
+      var file = this.files[0];
+      if (!file) return;
+      document.getElementById('attach-name').textContent = '📁 ' + file.name;
+      document.getElementById('attach-preview-bar').style.display = 'flex';
+    });
+  }
+
+  function loadMessages() {
+    fetch(API + '/api/chat?token=' + encodeURIComponent(token), {
+      headers: { 'x-portal-token': portalToken || '' }
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var msgs = data.mensajes || data;
+        var cerrado = data.cerrado || false;
+        renderMessages(msgs, cerrado);
+      })
+      .catch(function(){});
+  }
+
+  function renderMessages(msgs, cerrado) {
+    var box = document.getElementById('messages');
+    if (!box) return;
+    var atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+    var cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    msgs = msgs.filter(function(m) { return new Date(m.created_at).getTime() > cutoff; });
+
+    // Show closed state to client
+    var inputArea = document.getElementById('chat-input-area');
+    var closedBar = document.getElementById('chat-closed-bar');
+    var previewBar = document.getElementById('attach-preview-bar');
+    if (cerrado) {
+      var messagesEl = document.getElementById('messages');
+      if (messagesEl) messagesEl.style.display = 'none';
+      if (inputArea) inputArea.style.display = 'none';
+      if (closedBar) closedBar.style.display = 'flex';
+      if (previewBar) previewBar.style.display = 'none';
+      if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+    } else {
+      if (inputArea) inputArea.style.display = 'flex';
+      if (closedBar) closedBar.style.display = 'none';
+    }
+    if (!msgs.length) {
+      box.innerHTML = '<div class="no-msgs">Aún no hay mensajes. ¡Escríbenos!</div>';
+      return;
+    }
+    box.innerHTML = msgs.map(function(m) {
+      var archivoHtml = '';
+      if (m.archivo) {
+        var isImg = /\.(jpg|jpeg|png|webp|gif)$/i.test(m.archivo);
+        archivoHtml = '<div class="msg-archivo">' + (isImg
+          ? '<img src="' + esc(m.archivo) + '" onclick="window.open(this.src)" alt="imagen">'
+          : '<a href="' + esc(m.archivo) + '" target="_blank">📄 ' + esc(m.archivo.split('/').pop()) + '</a>'
+        ) + '</div>';
+      }
+      return '<div class="msg ' + m.sender + '">' +
+        (m.mensaje ? '<div class="bubble">' + esc(m.mensaje) + '</div>' : '') +
+        archivoHtml +
+        '<span class="msg-meta">' + (m.sender === 'cliente' ? 'Tú' : 'Técnico AvantService') + ' · ' + timeStr(m.created_at) + '</span>' +
+      '</div>';
+    }).join('');
+    if (atBottom) box.scrollTop = box.scrollHeight;
+  }
+
+  function clearAttach() {
+    document.getElementById('file-input').value = '';
+    document.getElementById('attach-preview-bar').style.display = 'none';
+    document.getElementById('attach-name').textContent = '';
+  }
+
+  function sendMessage() {
+    var input   = document.getElementById('chat-input');
+    var btn     = document.getElementById('send-btn');
+    var fileEl  = document.getElementById('file-input');
+    var msg     = input.value.trim();
+    var file    = fileEl.files[0];
+    if (!msg && !file) return;
+    btn.disabled = true;
+
+    if (file) {
+      var fd = new FormData();
+      fd.append('token', token);
+      fd.append('sender', 'cliente');
+      fd.append('sender_nombre', clienteNombre);
+      fd.append('mensaje', msg);
+      fd.append('archivo', file);
+      fetch(API + '/api/chat/upload', {
+        method: 'POST',
+        headers: { 'x-portal-token': portalToken || '' },
+        body: fd
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(data) { if (data.success) { input.value = ''; clearAttach(); loadMessages(); } })
+        .catch(function(){})
+        .finally(function() { btn.disabled = false; input.focus(); });
+    } else {
+      fetch(API + '/api/chat/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-portal-token': portalToken || '' },
+        body: JSON.stringify({ token: token, sender: 'cliente', sender_nombre: clienteNombre, mensaje: msg })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { if (data.success) { input.value = ''; loadMessages(); } })
+      .catch(function(){})
+      .finally(function() { btn.disabled = false; input.focus(); });
+    }
+  }
+})();
+</script>
+</body>
+</html>

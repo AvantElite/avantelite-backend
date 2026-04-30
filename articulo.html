@@ -1,0 +1,697 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artículo | AvantService</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700;800&family=Lora:ital,wght@0,400;0,600;1,400;1,600&display=swap">
+    <link rel="stylesheet" href="services.css">
+    <script src="https://unpkg.com/lucide@1.14.0/dist/umd/lucide.min.js" integrity="sha384-jB6ZXxyEV94yzTxgLMvrwwNbn/pTTqwrMDI+v8FV5o5FnId/yn3DJwSdrDujU9A7" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.1.6/purify.min.js" crossorigin="anonymous"></script>
+    <style>
+        /* ── PROGRESO ───────────────────────────────────── */
+        #progress-bar {
+            position: fixed;
+            top: 0; left: 0;
+            height: 2px;
+            width: 0%;
+            background: linear-gradient(90deg, #0057ff, #00f0ff);
+            z-index: 1001;
+            box-shadow: 0 0 8px rgba(0,240,255,0.6);
+            transition: width 0.1s linear;
+        }
+
+        /* ── HERO ───────────────────────────────────────── */
+        .article-hero {
+            position: relative;
+            min-height: 460px;
+            display: flex;
+            align-items: flex-end;
+            overflow: hidden;
+        }
+
+        .hero-bg-emoji {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16rem;
+            opacity: 0.07;
+            user-select: none;
+            pointer-events: none;
+        }
+
+        .hero-bg-img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.55;
+        }
+
+        .hero-gradient {
+            position: absolute;
+            inset: 0;
+            background:
+                linear-gradient(135deg, rgba(0,87,255,0.2) 0%, rgba(0,240,255,0.05) 50%, transparent 100%),
+                linear-gradient(to top, var(--bg-main) 0%, rgba(11,15,25,0.25) 50%, transparent 100%);
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 2;
+            max-width: 860px;
+            margin: 0 auto;
+            padding: 0 32px 52px;
+            width: 100%;
+            animation: heroIn 0.7s cubic-bezier(0.16,1,0.3,1) both;
+        }
+
+        @keyframes heroIn {
+            from { opacity: 0; transform: translateY(28px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .hero-meta {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .article-cat {
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: var(--acc-cyan);
+            background: rgba(0,240,255,0.1);
+            border: 1px solid rgba(0,240,255,0.25);
+            padding: 4px 12px;
+            border-radius: 2px;
+        }
+
+        .article-date-tag {
+            font-size: 0.78rem;
+            color: var(--text-secondary);
+        }
+
+        .article-hero h1 {
+            font-family: 'Lora', serif;
+            font-size: clamp(1.7rem, 4vw, 2.7rem);
+            font-weight: 600;
+            line-height: 1.2;
+            letter-spacing: -0.01em;
+            margin-bottom: 16px;
+            color: var(--text-primary);
+        }
+
+        .hero-resumen {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+            max-width: 600px;
+        }
+
+        [data-theme="light"] .hero-gradient {
+            background:
+                linear-gradient(135deg, rgba(0,87,255,0.15) 0%, rgba(0,240,255,0.06) 50%, transparent 100%),
+                linear-gradient(to top, var(--bg-main) 0%, rgba(237,227,212,0.5) 60%, transparent 100%);
+        }
+
+        /* ── LAYOUT ─────────────────────────────────────── */
+        .article-layout {
+            max-width: 1060px;
+            margin: 0 auto;
+            padding: 52px 24px 100px;
+            display: grid;
+            grid-template-columns: 1fr 190px;
+            gap: 56px;
+            align-items: start;
+        }
+
+        @media (max-width: 768px) {
+            .article-layout { grid-template-columns: 1fr; padding: 32px 16px 60px; }
+            .article-sidebar { display: none; }
+            .article-hero { min-height: 320px; }
+            .hero-content { padding: 0 20px 36px; }
+            .article-cta { padding: 24px 20px; }
+            .related-section { padding: 32px 16px 60px; }
+        }
+
+        /* ── SIDEBAR ────────────────────────────────────── */
+        .article-sidebar {
+            position: sticky;
+            top: 90px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            animation: sideIn 0.6s 0.3s ease both;
+        }
+
+        @keyframes sideIn {
+            from { opacity: 0; transform: translateX(14px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .sb-block {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            padding: 16px;
+        }
+
+        .sb-label {
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            opacity: 0.55;
+            margin-bottom: 10px;
+        }
+
+        .sb-block p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .sb-progress-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sb-track {
+            flex: 1;
+            height: 3px;
+            background: var(--glass-border);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .sb-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #0057ff, #00f0ff);
+            border-radius: 2px;
+            transition: width 0.15s;
+        }
+
+        .sb-pct {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--acc-cyan);
+            min-width: 28px;
+            text-align: right;
+        }
+
+        .sb-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+
+        .sb-tag {
+            font-size: 0.6rem;
+            font-weight: 600;
+            letter-spacing: 0.06em;
+            color: var(--text-secondary);
+            border: 1px solid var(--glass-border);
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        /* ── CUERPO ARTÍCULO ────────────────────────────── */
+        .article-body {
+            min-width: 0;
+            animation: bodyIn 0.7s 0.1s ease both;
+        }
+
+        @keyframes bodyIn {
+            from { opacity: 0; transform: translateY(18px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        .article-divider {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 36px;
+            opacity: 0.3;
+        }
+        .article-divider span { height: 1px; flex: 1; background: var(--glass-border); }
+        .article-divider i { font-size: 0.5rem; color: var(--acc-cyan); }
+
+        /* Prosa */
+        .prose {
+            font-family: 'Lora', serif;
+            font-size: 1.05rem;
+            line-height: 1.9;
+            color: var(--text-primary);
+        }
+
+        .prose p { margin-bottom: 22px; }
+
+        .prose p:first-of-type::first-letter {
+            font-size: 3.2rem;
+            font-weight: 600;
+            float: left;
+            line-height: 0.82;
+            margin: 8px 10px 0 0;
+            color: var(--acc-cyan);
+        }
+
+        .prose h2 {
+            font-family: 'Jost', sans-serif;
+            font-size: 1.12rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 36px 0 14px;
+            padding-left: 14px;
+            border-left: 2px solid var(--acc-cyan);
+        }
+
+        .prose h3 {
+            font-family: 'Jost', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 28px 0 10px;
+        }
+
+        .prose ul, .prose ol {
+            margin: 0 0 22px 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .prose li {
+            padding: 9px 0 9px 22px;
+            position: relative;
+            color: var(--text-secondary);
+            font-family: 'Jost', sans-serif;
+            font-size: 0.93rem;
+            line-height: 1.6;
+            border-bottom: 1px solid var(--glass-border);
+        }
+        .prose li:last-child { border-bottom: none; }
+        .prose li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--acc-cyan);
+            font-size: 0.78rem;
+        }
+
+        .prose strong { color: var(--text-primary); font-weight: 600; }
+        .prose em { font-style: italic; color: var(--text-secondary); }
+
+        .prose blockquote {
+            background: rgba(0,240,255,0.05);
+            border: 1px solid rgba(0,240,255,0.15);
+            border-left: 3px solid var(--acc-cyan);
+            border-radius: 0 4px 4px 0;
+            padding: 16px 20px;
+            margin: 28px 0;
+            font-family: 'Jost', sans-serif;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.65;
+            font-style: normal;
+        }
+
+        /* ── CTA ────────────────────────────────────────── */
+        .article-cta {
+            margin-top: 52px;
+            padding: 36px 40px;
+            background: linear-gradient(135deg, rgba(0,87,255,0.1), rgba(0,240,255,0.04));
+            border: 1px solid rgba(0,240,255,0.18);
+            border-radius: 6px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .article-cta::before {
+            content: '';
+            position: absolute;
+            top: -50px; right: -50px;
+            width: 220px; height: 220px;
+            background: radial-gradient(circle, rgba(0,240,255,0.07), transparent 70%);
+            pointer-events: none;
+        }
+
+        .article-cta h3 {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .article-cta p {
+            color: var(--text-secondary);
+            font-size: 0.88rem;
+            line-height: 1.6;
+            margin-bottom: 22px;
+        }
+
+        .article-cta .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            padding: 11px 26px;
+        }
+
+        /* ── RELACIONADOS ───────────────────────────────── */
+        .related-section {
+            max-width: 1060px;
+            margin: 0 auto;
+            padding: 48px 24px 80px;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .related-label {
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.25em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            margin-bottom: 24px;
+            opacity: 0.5;
+        }
+
+        .related-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 14px;
+        }
+
+        @media (max-width: 640px) {
+            .related-grid { grid-template-columns: 1fr; }
+        }
+
+        .related-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 4px;
+            padding: 18px;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            gap: 7px;
+            transition: border-color 0.2s, transform 0.2s;
+        }
+        .related-card:hover { border-color: rgba(0,240,255,0.3); transform: translateY(-2px); }
+        .related-card .r-emoji { font-size: 1.4rem; }
+        .related-card .r-cat { font-size: 0.58rem; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--acc-cyan); }
+        .related-card h4 { font-size: 0.86rem; font-weight: 600; line-height: 1.35; }
+        .related-card .r-read { font-size: 0.7rem; color: var(--acc-cyan); font-weight: 600; margin-top: auto; padding-top: 4px; }
+
+        /* ── BACK LINK ──────────────────────────────────── */
+        .article-back-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            text-decoration: none;
+            border: 1px solid var(--glass-border);
+            padding: 7px 14px;
+            border-radius: 2px;
+            margin-bottom: 36px;
+            transition: all 0.2s;
+        }
+        .article-back-btn:hover { color: var(--acc-cyan); border-color: rgba(0,240,255,0.3); background: rgba(0,240,255,0.05); }
+
+        /* ── LIGHT MODE ─────────────────────────────────── */
+        [data-theme="light"] #progress-bar {
+            background: linear-gradient(90deg, #dc2626, #ffaa00);
+            box-shadow: 0 0 8px rgba(255,170,0,0.5);
+        }
+        [data-theme="light"] .hero-gradient {
+            background:
+                linear-gradient(135deg, rgba(220,38,38,0.12) 0%, rgba(255,170,0,0.05) 50%, transparent 100%),
+                linear-gradient(to top, var(--bg-main) 0%, rgba(255,245,235,0.5) 60%, transparent 100%);
+        }
+        [data-theme="light"] .article-cat {
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.25);
+        }
+        [data-theme="light"] .sb-fill {
+            background: linear-gradient(90deg, #dc2626, #ffaa00);
+        }
+        [data-theme="light"] .prose blockquote {
+            background: rgba(255,170,0,0.05);
+            border-color: rgba(255,170,0,0.15);
+            border-left-color: var(--acc-cyan);
+        }
+        [data-theme="light"] .article-cta {
+            background: linear-gradient(135deg, rgba(220,38,38,0.07), rgba(255,170,0,0.03));
+            border-color: rgba(255,170,0,0.18);
+        }
+        [data-theme="light"] .article-cta::before {
+            background: radial-gradient(circle, rgba(255,170,0,0.06), transparent 70%);
+        }
+        [data-theme="light"] .related-card:hover {
+            border-color: rgba(255,170,0,0.3);
+        }
+        [data-theme="light"] .article-back-btn:hover {
+            border-color: rgba(255,170,0,0.3);
+            background: rgba(255,170,0,0.05);
+        }
+    </style>
+    <script>var t=localStorage.getItem("avantservice-theme");if(t==="light")document.documentElement.setAttribute("data-theme","light");</script>
+</head>
+<body>
+
+<div id="progress-bar"></div>
+
+<header>
+    <a href="index.html" class="logo-group">
+        <img src="logo.svg" width="60px" alt="AvantService">
+        <h1>AvantService</h1>
+    </a>
+    <div class="header-actions">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Cambiar tema">
+            <span class="icon-moon"><i data-lucide="moon"></i></span>
+            <span class="icon-sun"><i data-lucide="sun"></i></span>
+        </button>
+        <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+    <nav id="main-nav">
+        <a href="index.html">Inicio</a>
+        <a href="index.html#services">Servicios</a>
+        <a href="blog.html">Blog</a>
+    </nav>
+</header>
+
+<main id="main-content">
+    <div style="text-align:center;padding:120px 20px 60px;color:var(--text-secondary);">Cargando artículo…</div>
+</main>
+
+<div id="related-section" style="display:none"></div>
+
+<footer>
+    <div class="footer-grid">
+        <div class="footer-brand">
+            <a href="index.html" class="footer-logo">
+                <img src="logo.svg" alt="AvantService">
+                <span>Avant<em>Service</em></span>
+            </a>
+            <p>Reparación de calderas, electrodomésticos y televisores en Melilla. Servicio técnico oficial.</p>
+            <address>
+                Calle Ibáñez Marín, 2<br>
+                52003 Melilla, España<br>
+                Tel. <a href="tel:+34627640464" style="color:inherit;text-decoration:none;">627 64 04 64</a>
+            </address>
+        </div>
+        <div class="footer-col">
+            <h4>Servicios</h4>
+            <ul>
+                <li><a href="calderas.html">Calderas</a></li>
+                <li><a href="electrodomesticos.html">Electrodomésticos</a></li>
+                <li><a href="tv.html">Televisores</a></li>
+                <li><a href="reparalo.html">AvantFix</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Empresa</h4>
+            <ul>
+                <li><a href="blog.html">Blog</a></li>
+                <li><a href="aviso-legal.html">Aviso legal</a></li>
+                <li><a href="cookies.html">Cookies</a></li>
+                <li><a href="privacidad.html">Privacidad</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Contacto</h4>
+            <ul>
+                <li><a href="mailto:soporte@avantelite.es">soporte@avantelite.es</a></li>
+                <li><a href="tel:+34627640464">627 64 04 64</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <span>© 2026 AvantService Melilla S.L.U. · Todos los derechos reservados</span>
+        <span><a href="aviso-legal.html" style="color:inherit;text-decoration:none;">Aviso legal</a> · <a href="cookies.html" style="color:inherit;text-decoration:none;">Cookies</a> · <a href="privacidad.html" style="color:inherit;text-decoration:none;">Privacidad</a></span>
+    </div>
+</footer>
+
+<script>
+const API = (typeof AVANTSERVICE_CONFIG !== 'undefined') ? AVANTSERVICE_CONFIG.API_BLOG : 'http://localhost:3000/api/blog';
+
+function esc(str) {
+    return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function formatFecha(fecha) {
+    const [y, m, d] = fecha.split('-');
+    const meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return `${parseInt(d)} ${meses[parseInt(m)-1]} ${y}`;
+}
+
+function readTime(content) {
+    const words = (content || '').replace(/<[^>]+>/g, '').split(/\s+/).length;
+    return Math.max(1, Math.round(words / 200)) + ' min lectura';
+}
+
+function renderHero(post) {
+    const isImg = post.emoji && post.emoji.startsWith('http');
+    const bgMedia = isImg
+        ? `<img class="hero-bg-img" src="${post.emoji}" alt="portada">`
+        : `<div class="hero-bg-emoji">${post.emoji || '📄'}</div>`;
+
+    return `
+    <div class="article-hero">
+        ${bgMedia}
+        <div class="hero-gradient"></div>
+        <div class="hero-content">
+            <div class="hero-meta">
+                <span class="article-cat">${esc(post.categoria || 'General')}</span>
+                <span class="article-date-tag">${formatFecha(post.fecha)} · ${readTime(post.contenido)}</span>
+            </div>
+            <h1>${esc(post.titulo)}</h1>
+            <p class="hero-resumen">${esc(post.resumen)}</p>
+        </div>
+    </div>`;
+}
+
+function renderLayout(post) {
+    return `
+    <div class="article-layout">
+        <article class="article-body">
+            <a href="blog.html" class="article-back-btn">← Volver al blog</a>
+            <div class="article-divider"><span></span><i>✦</i><span></span></div>
+            <div class="prose">${DOMPurify.sanitize(post.contenido || '<p>Sin contenido disponible.</p>')}</div>
+            <div class="article-cta">
+                <h3>¿Necesitas ayuda con una avería?</h3>
+                <p>Nuestros técnicos especializados ofrecen diagnóstico gratuito y presupuesto sin compromiso en menos de 24 horas.</p>
+                <a href="index.html#contact" class="cta-button">Solicitar servicio →</a>
+            </div>
+        </article>
+        <aside class="article-sidebar">
+            <div class="sb-block">
+                <div class="sb-label">Progreso</div>
+                <div class="sb-progress-row">
+                    <div class="sb-track"><div class="sb-fill" id="sb-fill"></div></div>
+                    <span class="sb-pct" id="sb-pct">0%</span>
+                </div>
+            </div>
+            <div class="sb-block">
+                <div class="sb-label">Categoría</div>
+                <span class="article-cat">${esc(post.categoria || 'General')}</span>
+            </div>
+            <div class="sb-block">
+                <div class="sb-label">Publicado</div>
+                <p>${formatFecha(post.fecha)}</p>
+            </div>
+            <div class="sb-block">
+                <div class="sb-label">Lectura</div>
+                <p>${readTime(post.contenido)}</p>
+            </div>
+        </aside>
+    </div>`;
+}
+
+function renderRelated(posts, currentId) {
+    const others = posts.filter(p => p.id !== currentId).slice(0, 3);
+    if (!others.length) return;
+
+    const relatedEl = document.getElementById('related-section');
+    relatedEl.style.display = '';
+    relatedEl.innerHTML = `
+    <div class="related-section">
+        <p class="related-label">También te puede interesar</p>
+        <div class="related-grid">
+            ${others.map(p => {
+                const emoji = p.emoji && p.emoji.startsWith('http') ? '📄' : (p.emoji || '📄');
+                return `<a class="related-card" href="articulo.html?slug=${encodeURIComponent(p.slug)}">
+                    <span class="r-emoji">${esc(emoji)}</span>
+                    <span class="r-cat">${esc(p.categoria || 'General')}</span>
+                    <h4>${esc(p.titulo)}</h4>
+                    <span class="r-read">Leer →</span>
+                </a>`;
+            }).join('')}
+        </div>
+    </div>`;
+}
+
+// Barra de progreso de lectura
+window.addEventListener('scroll', function() {
+    const doc = document.documentElement;
+    const pct = Math.round((window.scrollY / (doc.scrollHeight - doc.clientHeight)) * 100) || 0;
+    document.getElementById('progress-bar').style.width = pct + '%';
+    const fill = document.getElementById('sb-fill');
+    const pctEl = document.getElementById('sb-pct');
+    if (fill) fill.style.width = pct + '%';
+    if (pctEl) pctEl.textContent = pct + '%';
+});
+
+// Cargar artículo
+const slug = new URLSearchParams(location.search).get('slug');
+const main = document.getElementById('main-content');
+
+if (!slug) {
+    main.innerHTML = '<p style="color:#f87171;text-align:center;padding:80px 20px;">Artículo no encontrado.</p>';
+} else {
+    Promise.all([
+        fetch(`${API}?slug=${encodeURIComponent(slug)}`).then(r => r.json()),
+        fetch(API).then(r => r.json()).catch(() => [])
+    ])
+    .then(([post, allPosts]) => {
+        if (post.error) throw new Error(post.error);
+        document.title = `${post.titulo} | AvantService`;
+        main.innerHTML = renderHero(post) + renderLayout(post);
+        renderRelated(allPosts, post.id);
+        lucide.createIcons();
+    })
+    .catch(() => {
+        main.innerHTML = '<p style="color:#f87171;text-align:center;padding:80px 20px;">No se pudo cargar el artículo. Comprueba que el servidor está activo.</p>';
+    });
+}
+</script>
+<script src="config.js"></script>
+<script src="theme.js"></script>
+<script src="nav.js"></script>
+<script src="tracker.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>
+
+
+
+
+
+

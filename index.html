@@ -1,0 +1,1553 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AvantService</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;700&display=swap">
+    <link rel="stylesheet" href="services.css">
+    <script>try{var t=localStorage.getItem("avantservice-theme");if(t==="light")document.documentElement.setAttribute("data-theme","light");}catch(e){}</script>
+    <script src="https://unpkg.com/lucide@1.14.0/dist/umd/lucide.min.js" integrity="sha384-jB6ZXxyEV94yzTxgLMvrwwNbn/pTTqwrMDI+v8FV5o5FnId/yn3DJwSdrDujU9A7" crossorigin="anonymous"></script>
+    <style>
+        /* ── UTILIDADES ──────────────────────────────────────────────────── */
+        .cyan {
+            color: var(--acc-cyan);
+            text-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+        }
+
+        [data-theme="light"] .cyan {
+            text-shadow: none;
+            font-weight: 700;
+        }
+
+        /* Asegura que el contenido queda sobre el canvas */
+        .hero, .services, .recent-blog-section, footer {
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            animation: slideDown 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
+            z-index: 999;
+        }
+
+        header .logo-group img {
+            animation: glowPulse 3s ease-in-out infinite;
+            border-radius: 10px;
+        }
+
+        .hero {
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Overrides the slideUp animation from services.css for homepage only */
+        .hero h2 {
+            animation: fadeUp 0.7s ease 0.4s both;
+        }
+
+        .hero p {
+            animation: fadeUp 0.7s ease 0.6s both;
+        }
+
+        /* Reducir el padding inferior de servicios solo en la home */
+        .services { padding-bottom: 40px; }
+        .toggle-icon { display: none; }
+        .service-header { cursor: default; }
+
+        /* ── SUB-SERVICIOS (nivel 2) ─────────────────────────────────────── */
+        .sub-services {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 16px;
+        }
+
+        .sub-item {
+            border: 1px solid var(--glass-border);
+            border-radius: 11px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .sub-item.open {
+            border-color: rgba(0,240,255,0.28);
+        }
+
+        .sub-item-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: rgba(255,255,255,0.02);
+            cursor: pointer;
+            user-select: none;
+            transition: background 0.18s;
+        }
+
+        .sub-item-header:hover { background: rgba(0,240,255,0.04); }
+        .sub-item.open .sub-item-header { background: rgba(0,240,255,0.05); }
+
+        .sub-service-icon-wrap {
+            width: 34px;
+            height: 34px;
+            border-radius: 8px;
+            background: rgba(0,240,255,0.08);
+            border: 1px solid rgba(0,240,255,0.14);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: transform 0.3s ease, background 0.3s;
+        }
+
+        .sub-item:hover .sub-service-icon-wrap {
+            transform: scale(1.1) rotate(-4deg);
+            background: rgba(0, 240, 255, 0.14);
+        }
+
+        .sub-service-icon-wrap svg {
+            width: 16px;
+            height: 16px;
+            stroke: var(--acc-cyan);
+            stroke-width: 2;
+            fill: none;
+        }
+
+        .sub-item-info {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .sub-service-title {
+            font-weight: 700;
+            font-size: 0.86rem;
+            line-height: 1.3;
+        }
+
+        .sub-service-desc {
+            font-size: 0.74rem;
+            color: var(--text-secondary);
+            line-height: 1.35;
+            margin-top: 1px;
+        }
+
+        /* Chevron para los que tienen hijos */
+        .sub-item-chevron {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            transition: transform 0.25s;
+            flex-shrink: 0;
+        }
+        .sub-item.open .sub-item-chevron { transform: rotate(180deg); }
+
+        /* CTA para los que abren modal directamente */
+        .sub-item-cta-direct {
+            font-size: 0.73rem;
+            font-weight: 700;
+            color: var(--acc-cyan);
+            white-space: nowrap;
+            flex-shrink: 0;
+            letter-spacing: 0.03em;
+        }
+
+        /* Nivel 3: opciones específicas (solo si hay hijos) */
+        .sub-item-children {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            border-top: 0px solid var(--glass-border);
+        }
+
+        .sub-item.open .sub-item-children {
+            max-height: 138px;
+            overflow-y: auto;
+            border-top-width: 1px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--acc-cyan) transparent;
+        }
+
+        .sub-item.open .sub-item-children::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .sub-item.open .sub-item-children::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sub-item.open .sub-item-children::-webkit-scrollbar-thumb {
+            background: var(--acc-cyan);
+            border-radius: 2px;
+            opacity: 0.5;
+        }
+
+        .sub-child-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            padding: 10px 14px 10px 20px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: inherit;
+            font-size: 0.82rem;
+            cursor: pointer;
+            text-align: left;
+            transition: background 0.15s, color 0.15s;
+            gap: 8px;
+        }
+
+        .sub-child-btn::before {
+            content: '·';
+            color: var(--acc-cyan);
+            font-size: 1.2rem;
+            line-height: 0;
+            flex-shrink: 0;
+            opacity: 0.5;
+        }
+
+        .sub-child-btn:hover {
+            background: rgba(0,240,255,0.06);
+            color: var(--text-primary);
+        }
+
+        .sub-child-btn::after {
+            content: 'Solicitar →';
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: var(--acc-cyan);
+            white-space: nowrap;
+            letter-spacing: 0.03em;
+            opacity: 0;
+            transform: translateX(-3px);
+            transition: opacity 0.18s ease, transform 0.18s ease;
+        }
+
+        .sub-child-btn:hover::after {
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .btn-subcategories {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 24px;
+            padding: 14px 24px;
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.12), rgba(0, 87, 255, 0.08));
+            border: 1px solid rgba(0, 240, 255, 0.25);
+            border-radius: 14px;
+            color: var(--acc-cyan);
+            text-decoration: none;
+            font-size: 0.88rem;
+            font-weight: 700;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-subcategories::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.1),
+                transparent
+            );
+            transition: 0.5s;
+        }
+
+        .btn-subcategories:hover {
+            background: rgba(0, 240, 255, 0.18);
+            border-color: rgba(0, 240, 255, 0.5);
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 240, 255, 0.15);
+            color: #adfaff;
+        }
+
+        .btn-subcategories:hover::before {
+            left: 100%;
+        }
+
+        [data-theme="light"] .btn-subcategories {
+            background: rgba(14, 116, 144, 0.08);
+            border-color: rgba(14, 116, 144, 0.25);
+            color: var(--acc-cyan);
+        }
+
+        [data-theme="light"] .btn-subcategories:hover {
+            background: rgba(14, 116, 144, 0.15);
+            border-color: var(--acc-cyan);
+        }
+
+        /* ── MODAL ───────────────────────────────────────────────────────── */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 8, 18, 0.85);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.open { display: flex; }
+
+        .modal-box {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 0;
+            width: 100%;
+            max-width: 580px;
+            max-height: 92vh;
+            overflow-y: auto;
+            position: relative;
+            animation: modalIn 0.28s cubic-bezier(0.34,1.56,0.64,1);
+        }
+
+        @keyframes modalIn {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .modal-header {
+            padding: 28px 28px 0;
+            position: relative;
+        }
+
+        .modal-body {
+            padding: 20px 28px 28px;
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            width: 34px;
+            height: 34px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .modal-close:hover {
+            background: rgba(0,240,255,0.08);
+            border-color: rgba(0,240,255,0.35);
+            color: var(--text-primary);
+        }
+
+        .modal-service-tag {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0,240,255,0.07);
+            border: 1px solid rgba(0,240,255,0.18);
+            color: var(--acc-cyan);
+            border-radius: 20px;
+            padding: 5px 14px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin-bottom: 12px;
+        }
+
+        .modal-title {
+            font-size: 1.4rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+            line-height: 1.2;
+        }
+
+        .modal-subtitle {
+            font-size: 0.84rem;
+            color: var(--text-secondary);
+            margin-bottom: 0;
+        }
+
+        .modal-divider {
+            height: 1px;
+            background: var(--glass-border);
+            margin: 20px 0;
+        }
+
+        /* Ajuste del btn-submit dentro del modal (menos margen) */
+        .modal-box .btn-submit {
+            margin-top: 20px;
+        }
+
+        /* ── AVANTFIX BANNER ─────────────────────────────────────────────── */
+        .avantfix-banner {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 13px 16px;
+            border-radius: 12px;
+            border: 1px dashed rgba(0,240,255,0.22);
+            background: rgba(0,240,255,0.03);
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .avantfix-banner:hover {
+            background: rgba(0,240,255,0.07);
+            border-color: rgba(0,240,255,0.4);
+        }
+
+        .avantfix-banner-icon {
+            font-size: 1.4rem;
+            flex-shrink: 0;
+            line-height: 1;
+        }
+
+        .avantfix-banner-text {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            flex: 1;
+        }
+
+        .avantfix-banner-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .avantfix-banner-sub {
+            font-size: 0.76rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .avantfix-banner-arrow {
+            font-size: 1rem;
+            color: var(--acc-cyan);
+            font-weight: 700;
+            flex-shrink: 0;
+            transition: transform 0.2s;
+        }
+
+        .avantfix-banner:hover .avantfix-banner-arrow {
+            transform: translateX(4px);
+        }
+
+        /* overrides moved to light-mode block below */
+
+        /* ── BLOGS RECIENTES ─────────────────────────────────────────────── */
+        .recent-blog-section {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 20px 20px 60px;
+        }
+
+        .recent-blog-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 32px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .recent-blog-header h2 {
+            font-size: clamp(1.4rem, 3vw, 2rem);
+            font-weight: bold;
+        }
+
+        .recent-blog-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Fila de secundarias con scroll horizontal */
+        .rb-secondary-row {
+            overflow-x: scroll;
+            scrollbar-width: none;
+            cursor: grab;
+        }
+        .rb-secondary-row::-webkit-scrollbar { display: none; }
+
+        .rb-secondary-track {
+            display: flex;
+            gap: 16px;
+        }
+
+        /* Tarjeta base */
+        .rb-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            text-decoration: none;
+            color: inherit;
+            transition: border-color 0.25s, transform 0.25s;
+            opacity: 0;
+            transform: translateY(28px);
+        }
+
+        .rb-card.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .rb-card:hover {
+            border-color: rgba(0, 240, 255, 0.3);
+            transform: translateY(-3px);
+        }
+
+        /* Tarjeta destacada */
+        .rb-card.rb-featured {
+            flex-direction: row;
+        }
+
+        /* Tarjetas secundarias: ancho fijo generoso */
+        .rb-secondary-track .rb-card {
+            flex-shrink: 0;
+            width: clamp(260px, 33%, 340px);
+        }
+
+        .rb-card-img {
+            background: linear-gradient(135deg, rgba(0, 87, 255, 0.25), rgba(0, 240, 255, 0.1));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.8rem;
+            flex-shrink: 0;
+        }
+
+        .rb-secondary-track .rb-card .rb-card-img {
+            height: 140px;
+            width: 100%;
+        }
+
+        /* Imagen en featured */
+        .rb-card.rb-featured .rb-card-img {
+            width: 300px;
+            font-size: 4rem;
+            position: relative;
+        }
+
+        .rb-card.rb-featured .rb-card-img::after {
+            content: 'DESTACADO';
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            font-size: 0.58rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            color: var(--acc-cyan);
+            background: rgba(0,240,255,0.08);
+            border: 1px solid rgba(0,240,255,0.2);
+            padding: 3px 8px;
+            border-radius: 2px;
+        }
+
+        .rb-card-body {
+            padding: 20px 22px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .rb-card.rb-featured .rb-card-body {
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .rb-card-meta {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .rb-card-cat {
+            background: rgba(0, 240, 255, 0.08);
+            border: 1px solid rgba(0, 240, 255, 0.2);
+            color: var(--acc-cyan);
+            padding: 2px 10px;
+            border-radius: 2px;
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+
+        .rb-card-date {
+            color: var(--text-secondary);
+            font-size: 0.72rem;
+            opacity: 0.6;
+        }
+
+        .rb-card-body h3 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .rb-card.rb-featured .rb-card-body h3 {
+            font-size: 1.25rem;
+        }
+
+        .rb-card-body p {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            line-height: 1.55;
+            margin: 0;
+            flex: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .rb-card.rb-featured .rb-card-body p {
+            -webkit-line-clamp: 3;
+        }
+
+        .rb-card-link {
+            color: var(--acc-cyan);
+            font-size: 0.78rem;
+            font-weight: 600;
+            margin-top: 4px;
+            letter-spacing: 0.05em;
+        }
+
+        @media (max-width: 640px) {
+            .rb-card.rb-featured { flex-direction: column; }
+            .rb-card.rb-featured .rb-card-img { width: 100%; height: 130px; }
+            .rb-secondary-track .rb-card { width: 240px; }
+            .recent-blog-section { padding: 20px 16px 40px; }
+            .recent-blog-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+        }
+
+        /* ── CONFIRM BANNER ──────────────────────────────────────────────── */
+        .confirm-banner {
+            display: none;
+            gap: 14px;
+            align-items: flex-start;
+            margin-top: 24px;
+            padding: 18px 20px;
+            border-radius: 12px;
+            background: rgba(16,185,129,0.07);
+            border: 1px solid rgba(16,185,129,0.3);
+            animation: fadeInUp 0.4s ease;
+        }
+        .confirm-banner.visible { display: flex; }
+        .confirm-banner-icon { font-size: 1.5rem; flex-shrink: 0; line-height: 1; }
+        .confirm-banner-body { display: flex; flex-direction: column; gap: 4px; }
+        .confirm-banner-title { font-weight: 700; color: #6ee7b7; font-size: 0.95rem; }
+        .confirm-banner-text  { color: var(--text-secondary); font-size: 0.83rem; line-height: 1.55; }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Scroll reveal — service cards initial state */
+        .service {
+          opacity: 0;
+          transform: translateY(30px);
+          transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1),
+                      transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .service.revealed {
+          opacity: 1;
+          transform: translateY(0);
+        }
+        /* Animated cyan line that slides across the top edge on reveal */
+        .service::after {
+          content: '';
+          position: absolute;
+          top: 0; left: 0; right: 100%;
+          height: 2px;
+          background: linear-gradient(90deg, var(--acc-cyan), rgba(0, 87, 255, 0.8));
+          transition: right 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+          pointer-events: none;
+        }
+        .service.revealed::after {
+          right: 0;
+        }
+        /* Hover lift */
+        .service:hover {
+          transform: translateY(-5px);
+          border-color: rgba(0, 240, 255, 0.3);
+          box-shadow: 0 12px 30px rgba(0, 240, 255, 0.08);
+        }
+        [data-theme="light"] .service:hover {
+          border-color: rgba(14, 116, 144, 0.3);
+          box-shadow: 0 12px 30px rgba(14, 116, 144, 0.10);
+        }
+
+        /* Light mode — suppress glow-heavy elements */
+        [data-theme="light"] .hero-glow {
+          opacity: 0.3;
+        }
+        [data-theme="light"] #particle-canvas {
+          opacity: 0.85 !important;
+        }
+
+        /* ── Light mode overrides (hardcoded cyan/blue → orange/red) ────── */
+        [data-theme="light"] .sub-item.open { border-color: rgba(255,170,0,0.3); }
+        [data-theme="light"] .sub-item-header:hover { background: rgba(255,170,0,0.04); }
+        [data-theme="light"] .sub-item.open .sub-item-header { background: rgba(255,170,0,0.05); }
+        [data-theme="light"] .sub-service-icon-wrap {
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.15);
+        }
+        [data-theme="light"] .sub-item:hover .sub-service-icon-wrap { background: rgba(255,170,0,0.14); }
+        [data-theme="light"] .sub-child-btn:hover { background: rgba(255,170,0,0.06); }
+        [data-theme="light"] .btn-subcategories {
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.25);
+        }
+        [data-theme="light"] .btn-subcategories:hover {
+            background: rgba(255,170,0,0.15);
+            border-color: rgba(255,170,0,0.5);
+            box-shadow: 0 8px 20px rgba(255,170,0,0.15);
+            color: #ff8533;
+        }
+        [data-theme="light"] .modal-close:hover {
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.35);
+        }
+        [data-theme="light"] .modal-service-tag {
+            background: rgba(255,170,0,0.07);
+            border-color: rgba(255,170,0,0.2);
+        }
+        [data-theme="light"] .avantfix-banner {
+            border-color: rgba(255,170,0,0.25);
+            background: rgba(255,170,0,0.04);
+        }
+        [data-theme="light"] .avantfix-banner:hover {
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.45);
+        }
+        .avantfix-banner-title {
+            background: linear-gradient(90deg, #00f0ff, #0057ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+        [data-theme="light"] .avantfix-banner-title {
+            background: linear-gradient(90deg, #ffaa00, #dc2626);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+        [data-theme="light"] .avantfix-hero-link {
+            background: linear-gradient(90deg, #ffaa00, #dc2626);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            border-bottom-color: #ffaa00;
+            opacity: 1;
+            filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25));
+        }
+        [data-theme="light"] .rb-card:hover { border-color: rgba(255,170,0,0.3); }
+        [data-theme="light"] .rb-card-img {
+            background: linear-gradient(135deg, rgba(220,38,38,0.15), rgba(255,170,0,0.1));
+        }
+        [data-theme="light"] .rb-card.rb-featured .rb-card-img::after {
+            color: var(--acc-cyan);
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.2);
+        }
+        [data-theme="light"] .rb-card-cat {
+            background: rgba(255,170,0,0.08);
+            border-color: rgba(255,170,0,0.2);
+        }
+        [data-theme="light"] .service::after {
+            background: linear-gradient(90deg, var(--acc-cyan), #dc2626);
+        }
+        [data-theme="light"] .service:hover {
+            border-color: rgba(255,170,0,0.3);
+            box-shadow: 0 12px 30px rgba(255,170,0,0.1);
+        }
+        [data-theme="light"] .cyan { text-shadow: none; font-weight: 700; }
+        #typewriter-target {
+            background: linear-gradient(90deg, #00f0ff, #0057ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+        #typewriter-cursor {
+            background: #00f0ff;
+        }
+        [data-theme="light"] #typewriter-target {
+            background: linear-gradient(90deg, #ffaa00, #dc2626);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        [data-theme="light"] #typewriter-cursor {
+            background: #ffaa00;
+        }
+        .avantfix-hero-link {
+            font-weight: 700;
+            text-decoration: none;
+            border-bottom: 1px solid #00f0ff;
+            background: linear-gradient(90deg, #00f0ff, #0057ff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            transition: opacity 0.2s;
+        }
+        .avantfix-hero-link:hover { opacity: 0.8; }
+
+        /* Blog cards — revealed state handled via inline style clearing in scrollObserver */
+    </style>
+    <script>var t=localStorage.getItem("avantservice-theme");if(t==="light")document.documentElement.setAttribute("data-theme","light");</script>
+</head>
+<body>
+<canvas id="particle-canvas" style="position:fixed;inset:0;pointer-events:none;z-index:0;opacity:0.45;"></canvas>
+
+<header>
+    <a href="index.html" class="logo-group">
+        <img src="logo.svg" width="60px" alt="AvantService">
+        <h1>AvantService</h1>
+    </a>
+    <div class="header-actions">
+        <button id="theme-toggle" class="theme-toggle" aria-label="Cambiar tema">
+            <span class="icon-moon"><i data-lucide="moon"></i></span>
+            <span class="icon-sun"><i data-lucide="sun"></i></span>
+        </button>
+        <button class="nav-toggle" aria-label="Abrir menú" aria-expanded="false" aria-controls="main-nav">
+            <span></span><span></span><span></span>
+        </button>
+    </div>
+    <nav id="main-nav">
+        <a href="#">Inicio</a>
+        <a href="#services">Servicios</a>
+        <a href="#blog">Blog</a>
+    </nav>
+</header>
+
+<section class="hero">
+    <div class="hero-glow" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:500px;height:200px;background:radial-gradient(ellipse,rgba(0,240,255,0.08) 0%,transparent 70%);pointer-events:none;animation:breathe 4s ease-in-out infinite;"></div>
+    <h2>Soluciones <span id="typewriter-target"></span><span id="typewriter-cursor" style="display:inline-block;width:2px;height:0.9em;background:var(--acc-cyan);margin-left:2px;vertical-align:middle;animation:blink 1s step-end infinite;"></span><br>para tu hogar</h2>
+    <p>En AvantService ofrecemos servicios de alta calidad adaptados a tus necesidades. ¿Prefieres intentarlo tú mismo? Prueba <a href="reparalo.html" class="avantfix-hero-link">AvantFix</a>, nuestra guía gratuita de reparación paso a paso.</p>
+</section>
+
+<section id="services" class="services">
+    <h2>Nuestros Servicios</h2>
+    <div class="service-container">
+
+        <!-- TELEVISORES -->
+        <div class="service" data-delay="0">
+            <div class="service-header">
+                <h3>Reparación de televisores</h3>
+                <span class="toggle-icon"></span>
+            </div>
+            <div class="service-body">
+                <p>Reparamos todo tipo de televisores: LED, OLED, QLED y Smart TV con piezas originales y garantía de servicio.</p>
+                <div class="sub-services">
+
+                    <!-- Con sub-subapartados -->
+                    <div class="sub-item" data-servicio="Televisores" data-sub="Problemas de Imagen">
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="monitor"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Problemas de Imagen</span>
+                                <span class="sub-service-desc">Pantalla negra, líneas, colores o brillo incorrectos.</span>
+                            </span>
+                            <span class="sub-item-chevron">▼</span>
+                        </div>
+                        <div class="sub-item-children">
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Pantalla negra con sonido</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Líneas verticales u horizontales</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Falta de brillo (backlight)</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Colores distorsionados o manchas</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Imagen parpadeante o inestable</button>
+                        </div>
+                    </div>
+
+                    <!-- Sin sub-subapartados: abre modal directamente -->
+                    <div class="sub-item" data-servicio="Televisores" data-sub="Problemas de Encendido" data-problema="fallo-electrico" data-direct>
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="zap"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Problemas de Encendido</span>
+                                <span class="sub-service-desc">No enciende, LED parpadea o se apaga solo.</span>
+                            </span>
+                            <span class="sub-item-cta-direct">Solicitar →</span>
+                        </div>
+                    </div>
+
+                    <!-- Con sub-subapartados -->
+                    <div class="sub-item" data-servicio="Televisores" data-sub="Software y Conectividad">
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="wifi"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Software y Conectividad</span>
+                                <span class="sub-service-desc">Firmware, Wi-Fi, apps o errores de Smart TV.</span>
+                            </span>
+                            <span class="sub-item-chevron">▼</span>
+                        </div>
+                        <div class="sub-item-children">
+                            <button class="sub-child-btn" data-problema="error-software">Actualización de firmware fallida</button>
+                            <button class="sub-child-btn" data-problema="error-software">Wi-Fi no conecta o se desconecta</button>
+                            <button class="sub-child-btn" data-problema="error-software">Apps que no cargan (Netflix, YouTube…)</button>
+                        </div>
+                    </div>
+                </div>
+                <a href="tv.html#subcategories" class="btn-subcategories">Ver todos los servicios →</a>
+            </div>
+        </div>
+
+        <!-- ELECTRODOMÉSTICOS -->
+        <div class="service" data-delay="150">
+            <div class="service-header">
+                <h3>Reparación de electrodomésticos</h3>
+                <span class="toggle-icon"></span>
+            </div>
+            <div class="service-body">
+                <p>Servicio técnico especializado en lavadoras, frigoríficos, hornos, lavavajillas y más, a domicilio.</p>
+                <div class="sub-services">
+
+                    <div class="sub-item" data-servicio="Electrodomésticos" data-sub="Lavadoras y Secadoras">
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="washing-machine"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Lavadoras y Secadoras</span>
+                                <span class="sub-service-desc">Gomas, bombas, motor, centrifugado y placa base.</span>
+                            </span>
+                            <span class="sub-item-chevron">▼</span>
+                        </div>
+                        <div class="sub-item-children">
+                            <button class="sub-child-btn" data-problema="ruido-extrano">Ruidos o vibraciones anormales</button>
+                            <button class="sub-child-btn" data-problema="fuga-agua">Fuga de agua</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">No centrifuga o no termina el ciclo</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Error en panel o placa base</button>
+                        </div>
+                    </div>
+
+                    <div class="sub-item" data-servicio="Electrodomésticos" data-sub="Frigoríficos y Congeladores">
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="refrigerator"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Frigoríficos y Congeladores</span>
+                                <span class="sub-service-desc">Gas, compresor, escarcha y termostato digital.</span>
+                            </span>
+                            <span class="sub-item-chevron">▼</span>
+                        </div>
+                        <div class="sub-item-children">
+                            <button class="sub-child-btn" data-problema="fuga-agua">No enfría correctamente</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Acumulación de escarcha (No Frost)</button>
+                            <button class="sub-child-btn" data-problema="ruido-extrano">Ruido excesivo del compresor</button>
+                        </div>
+                    </div>
+
+                    <!-- Sin subapartados -->
+                    <div class="sub-item" data-servicio="Electrodomésticos" data-sub="Hornos y Vitrocerámicas" data-problema="fallo-electrico" data-direct>
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="flame"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Hornos y Vitrocerámicas</span>
+                                <span class="sub-service-desc">Resistencias, selectores, vidrios e inducción.</span>
+                            </span>
+                            <span class="sub-item-cta-direct">Solicitar →</span>
+                        </div>
+                    </div>
+
+                </div>
+                <a href="electrodomesticos.html#subcategories" class="btn-subcategories">Ver todos los servicios →</a>
+            </div>
+        </div>
+
+        <!-- CALDERAS -->
+        <div class="service" data-delay="300">
+            <div class="service-header">
+                <h3>Calderas, Aire Acondicionado y Calefacción</h3>
+                <span class="toggle-icon"></span>
+            </div>
+            <div class="service-body">
+                <p>Reparación y mantenimiento de calderas y sistemas de calefacción. Revisiones preventivas y detección de fugas.</p>
+                <div class="sub-services">
+
+                    <div class="sub-item" data-servicio="Calderas y Calefacción" data-sub="Calderas de Gas y Gasoil">
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="fuel"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Calderas de Gas y Gasoil</span>
+                                <span class="sub-service-desc">Quemadores, bomba, vaso de expansión y panel.</span>
+                            </span>
+                            <span class="sub-item-chevron">▼</span>
+                        </div>
+                        <div class="sub-item-children">
+                            <button class="sub-child-btn" data-problema="fuga-agua">Fuga de agua o gas</button>
+                            <button class="sub-child-btn" data-problema="fallo-electrico">Caldera no enciende o da error</button>
+                            <button class="sub-child-btn" data-problema="otros">Mantenimiento anual preventivo</button>
+                        </div>
+                    </div>
+
+                    <!-- Sin subapartados -->
+                    <div class="sub-item" data-servicio="Calderas y Calefacción" data-sub="Radiadores y Circuitos" data-problema="ruido-extrano" data-direct>
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="waves"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Radiadores y Circuitos</span>
+                                <span class="sub-service-desc">Purgado, ruidos, fugas y equilibrado de calor.</span>
+                            </span>
+                            <span class="sub-item-cta-direct">Solicitar →</span>
+                        </div>
+                    </div>
+
+                    <!-- Sin subapartados -->
+                    <div class="sub-item" data-servicio="Calderas y Calefacción" data-sub="Termostatos Inteligentes" data-problema="error-software" data-direct>
+                        <div class="sub-item-header">
+                            <span class="sub-service-icon-wrap"><i data-lucide="thermometer"></i></span>
+                            <span class="sub-item-info">
+                                <span class="sub-service-title">Termostatos Inteligentes</span>
+                                <span class="sub-service-desc">Instalación y configuración Wifi.</span>
+                            </span>
+                            <span class="sub-item-cta-direct">Solicitar →</span>
+                        </div>
+                    </div>
+
+                </div>
+                <a href="calderas.html#subcategories" class="btn-subcategories">Ver todos los servicios →</a>
+            </div>
+        </div>
+
+    </div>
+</section>
+
+<!-- BLOGS RECIENTES -->
+<section class="recent-blog-section" id="blog">
+    <div class="recent-blog-header">
+        <h2>Últimas entradas del <span class="cyan">Blog</span></h2>
+        <a href="blog.html" class="cta-button" style="padding: 8px 22px; font-size: 0.82rem;">Ver todos →</a>
+    </div>
+    <div class="recent-blog-grid" id="recent-blog-grid">
+        <div style="grid-column:1/-1; text-align:center; color:var(--text-secondary); padding:30px 0;">Cargando…</div>
+    </div>
+</section>
+
+<!-- MODAL DE CONTACTO -->
+<div id="contact-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-box">
+
+        <!-- Cabecera del modal -->
+        <div class="modal-header">
+            <button class="modal-close" id="modal-close-btn" aria-label="Cerrar"><i data-lucide="x"></i></button>
+            <div class="modal-service-tag" id="modal-service-tag"><i data-lucide="clipboard-list"></i> Servicio general</div>
+            <div class="modal-title" id="modal-title">Solicitar Servicio</div>
+            <div class="modal-subtitle">Un técnico se pondrá en contacto contigo en menos de 48h</div>
+
+            <!-- AvantFix alternativa -->
+            <a href="reparalo.html" class="avantfix-banner" style="margin-top:18px;">
+                <div class="avantfix-banner-icon"><i data-lucide="wrench"></i></div>
+                <div class="avantfix-banner-text">
+                    <span class="avantfix-banner-title">¿Prefieres intentarlo tú mismo?</span>
+                    <span class="avantfix-banner-sub">Usa AvantFix y te orientamos paso a paso sin coste</span>
+                </div>
+                <span class="avantfix-banner-arrow">→</span>
+            </a>
+        </div>
+
+        <div class="modal-divider"></div>
+
+        <!-- Cuerpo del modal -->
+        <div class="modal-body">
+        <form id="contactForm" action="#" method="POST" class="avant-form" data-api-action="contacto">
+            <input type="hidden" name="origen_sitio" value="AVANTSERVICE">
+            <input type="hidden" id="modal-hidden-sub" name="subapartado" value="">
+
+            <div class="form-grid">
+                <div class="input-group">
+                    <label>Nombre</label>
+                    <input type="text" name="nombre" placeholder="Tu nombre" required>
+                </div>
+                <div class="input-group">
+                    <label>Apellido</label>
+                    <input type="text" name="apellido" placeholder="Tu apellido" required>
+                </div>
+                <div class="input-group">
+                    <label>Correo Electrónico</label>
+                    <input type="email" name="email" placeholder="ejemplo@correo.com" required>
+                </div>
+                <div class="input-group">
+                    <label>Teléfono</label>
+                    <input type="tel" name="telefono" placeholder="+34 000 000 000">
+                </div>
+
+                <div class="input-group full-width">
+                    <label>Producto Relacionado</label>
+                    <input type="text" id="modal-producto" name="producto" placeholder="Escribe el nombre del producto..." required>
+                </div>
+
+                <div class="input-group full-width">
+                    <label>Tipo de Consulta o Problema</label>
+                    <select id="modal-problema" name="problema" required>
+                        <option value="" disabled selected>¿En qué podemos ayudarte?</option>
+                        <option value="montaje">No sé cómo realizar el montaje/instalación</option>
+                        <option value="pieza-faltante">Falta una pieza en el embalaje</option>
+                        <option value="dano-transporte">El producto llegó golpeado o roto</option>
+                        <option value="error-software">Error en la configuración del software / SmartThings</option>
+                        <option value="fallo-electrico">El equipo no enciende o tiene fallos eléctricos</option>
+                        <option value="ruido-extrano">Emite ruidos extraños durante el funcionamiento</option>
+                        <option value="fuga-agua">Fuga de agua o gas refrigerante</option>
+                        <option value="garantia">Consulta sobre la cobertura de garantía oficial</option>
+                        <option value="devolucion">Solicitud de devolución por insatisfacción</option>
+                        <option value="piezas-recambio">Necesito comprar piezas de recambio oficiales</option>
+                        <option value="otros">Otros problemas técnicos</option>
+                    </select>
+                </div>
+
+                <div class="input-group full-width">
+                    <label>Mensaje Adicional</label>
+                    <textarea name="mensaje" rows="3" placeholder="Explícanos brevemente tu situación..."></textarea>
+                </div>
+            </div>
+
+            <p class="form-error-msg" style="display:none;color:#f87171;font-size:0.85rem;margin-bottom:8px;"></p>
+            <button type="submit" class="btn-submit">ENVIAR</button>
+
+            <div class="confirm-banner" id="modal-confirm">
+                <span class="confirm-banner-icon"><i data-lucide="circle-check"></i></span>
+                <div class="confirm-banner-body">
+                    <span class="confirm-banner-title">¡Solicitud enviada!</span>
+                    <span class="confirm-banner-text">Nos pondremos en contacto contigo en un plazo máximo de 48 horas laborables.</span>
+                </div>
+            </div>
+        </form>
+
+        <p style="margin-top: 16px; font-size: 0.78rem; color: var(--text-secondary); text-align: center; line-height: 1.6;">
+            <i data-lucide="lock"></i> Tus datos están protegidos y nunca serán cedidos a terceros.
+        </p>
+        </div><!-- fin modal-body -->
+    </div>
+</div>
+
+<footer>
+    <div class="footer-grid">
+        <div class="footer-brand">
+            <a href="index.html" class="footer-logo">
+                <img src="logo.svg" alt="AvantService">
+                <span>Avant<em>Service</em></span>
+            </a>
+            <p>Reparación de calderas, electrodomésticos y televisores en Melilla. Servicio técnico oficial.</p>
+            <address>
+                Calle Ibáñez Marín, 2<br>
+                52003 Melilla, España<br>
+                Tel. <a href="tel:+34627640464" style="color:inherit;text-decoration:none;">627 64 04 64</a>
+            </address>
+        </div>
+        <div class="footer-col">
+            <h4>Servicios</h4>
+            <ul>
+                <li><a href="calderas.html">Calderas</a></li>
+                <li><a href="electrodomesticos.html">Electrodomésticos</a></li>
+                <li><a href="tv.html">Televisores</a></li>
+                <li><a href="reparalo.html">AvantFix</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Empresa</h4>
+            <ul>
+                <li><a href="blog.html">Blog</a></li>
+                <li><a href="aviso-legal.html">Aviso legal</a></li>
+                <li><a href="cookies.html">Cookies</a></li>
+                <li><a href="privacidad.html">Privacidad</a></li>
+            </ul>
+        </div>
+        <div class="footer-col">
+            <h4>Contacto</h4>
+            <ul>
+                <li><a href="mailto:soporte@avantelite.es">soporte@avantelite.es</a></li>
+                <li><a href="tel:+34627640464">627 64 04 64</a></li>
+            </ul>
+        </div>
+    </div>
+    <div class="footer-bottom">
+        <span>© 2026 AvantService Melilla S.L.U. · Todos los derechos reservados</span>
+        <span><a href="aviso-legal.html" style="color:inherit;text-decoration:none;">Aviso legal</a> · <a href="cookies.html" style="color:inherit;text-decoration:none;">Cookies</a> · <a href="privacidad.html" style="color:inherit;text-decoration:none;">Privacidad</a></span>
+    </div>
+</footer>
+
+<script>
+// ── Modal de contacto ────────────────────────────────────────────────────────
+var modal      = document.getElementById('contact-modal');
+var closeBtn   = document.getElementById('modal-close-btn');
+var serviceTag = document.getElementById('modal-service-tag');
+var hiddenSub  = document.getElementById('modal-hidden-sub');
+var selectProb = document.getElementById('modal-problema');
+
+function openModal(servicio, sub, detalle, problema) {
+    var label = servicio + ' · ' + sub;
+    if (detalle) label += ' · ' + detalle;
+    serviceTag.innerHTML = '<i data-lucide="clipboard-list"></i> ' + label;
+    lucide.createIcons({ nodes: [serviceTag] });
+    hiddenSub.value = detalle || sub;
+    if (problema && selectProb.querySelector('option[value="' + problema + '"]')) {
+        selectProb.value = problema;
+    }
+    modal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    modal.querySelector('input[name="nombre"]').focus();
+}
+
+function closeModal() {
+    modal.classList.remove('open');
+    document.body.style.overflow = '';
+}
+
+
+// ── Sub-items: con y sin hijos ───────────────────────────────────────────────
+document.querySelectorAll('.sub-item').forEach(function(item) {
+    var header = item.querySelector('.sub-item-header');
+    var isDirect = item.hasAttribute('data-direct');
+    var children = item.querySelector('.sub-item-children');
+
+    header.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (isDirect) {
+            openModal(item.dataset.servicio, item.dataset.sub, null, item.dataset.problema);
+        } else {
+            var isOpen = item.classList.toggle('open');
+            var subServices = item.closest('.sub-services');
+            // Cierra otros sub-items del mismo nivel
+            subServices.querySelectorAll('.sub-item').forEach(function(other) {
+                if (other !== item) other.classList.remove('open');
+            });
+            if (!isOpen) item.classList.remove('open');
+        }
+    });
+
+    // Botones de nivel 3
+    if (children) {
+        children.querySelectorAll('.sub-child-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                openModal(item.dataset.servicio, item.dataset.sub, btn.textContent.trim(), btn.dataset.problema);
+            });
+        });
+    }
+});
+
+closeBtn.addEventListener('click', closeModal);
+
+modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeModal();
+});
+
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeModal();
+});
+
+// ── Envío del formulario del modal ───────────────────────────────────────────
+document.getElementById('contactForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    var form = this;
+    var confirmEl = document.getElementById('modal-confirm');
+    var submitBtn = form.querySelector('.btn-submit');
+    var errorEl = form.querySelector('.form-error-msg');
+    var API_CONTACT = (typeof AVANTSERVICE_CONFIG !== 'undefined') ? AVANTSERVICE_CONFIG.API_CONTACT : 'http://localhost:3000/contacto';
+
+    var nombre = (form.querySelector('[name="nombre"]') || {value:''}).value.trim();
+    var email  = (form.querySelector('[name="correo"]') || form.querySelector('[name="email"]') || {value:''}).value.trim();
+    var tel    = (form.querySelector('[name="telefono"]') || {value:''}).value.trim();
+    if (!nombre || nombre.length < 2) { showFErr(errorEl, 'Por favor, introduce tu nombre.'); return; }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showFErr(errorEl, 'Introduce un correo electrónico válido.'); return; }
+    if (tel && !/^[+\d\s\-]{7,15}$/.test(tel)) { showFErr(errorEl, 'El teléfono no tiene un formato válido.'); return; }
+    if (errorEl) { errorEl.style.display = 'none'; errorEl.textContent = ''; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Enviando…';
+
+    fetch(API_CONTACT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(new FormData(form)))
+    })
+    .then(function() {
+        confirmEl.classList.add('visible');
+        form.reset();
+        submitBtn.style.display = 'none';
+        setTimeout(closeModal, 3200);
+    })
+    .catch(function() {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'ENVIAR';
+        showFErr(errorEl, 'Error al enviar. Por favor, inténtalo de nuevo.');
+    });
+});
+function showFErr(el, msg) { if (el) { el.textContent = msg; el.style.display = 'block'; } }
+</script>
+
+<script>
+(function () {
+  var words = ['rápidas', 'de confianza', 'profesionales', 'eficaces'];
+  var wi = 0, ci = 0, deleting = false;
+  var target = document.getElementById('typewriter-target');
+  if (!target) return;
+
+  function step() {
+    var word = words[wi];
+    if (!deleting) {
+      ci++;
+      target.textContent = word.slice(0, ci);
+      if (ci === word.length) {
+        setTimeout(function () { deleting = true; step(); }, 1800);
+        return;
+      }
+    } else {
+      ci--;
+      target.textContent = word.slice(0, ci);
+      if (ci === 0) {
+        deleting = false;
+        wi = (wi + 1) % words.length;
+      }
+    }
+    setTimeout(step, deleting ? 45 : 80);
+  }
+
+  setTimeout(step, 1000);
+})();
+</script>
+
+<script src="config.js"></script>
+<script src="theme.js"></script>
+<script src="nav.js"></script>
+<script src="tracker.js"></script>
+<script>lucide.createIcons();</script>
+
+<script>
+// Services always expanded in homepage
+document.querySelectorAll('.service').forEach(function (el) {
+  el.classList.add('active');
+});
+
+window.scrollObserver = new IntersectionObserver(function (entries) {
+  entries.forEach(function (entry) {
+    if (entry.isIntersecting) {
+      var el = entry.target;
+      var delay = parseInt(el.dataset.delay || '0', 10);
+      setTimeout(function () {
+        el.style.opacity = '';
+        el.style.transform = '';
+        el.style.transition = '';
+        el.classList.add('revealed');
+      }, delay);
+      window.scrollObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.15 });
+
+document.querySelectorAll('.service').forEach(function (el) {
+  window.scrollObserver.observe(el);
+});
+</script>
+
+<script>
+(function () {
+    function formatFecha(fecha) {
+        var parts = fecha.split('-');
+        var meses = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+        return parseInt(parts[2]) + ' ' + meses[parseInt(parts[1])-1] + ' ' + parts[0];
+    }
+
+    var blogObserver = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+                entry.target.classList.add('visible');
+                blogObserver.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.12 });
+
+    function esc(str) {
+        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    fetch((typeof AVANTSERVICE_CONFIG !== 'undefined') ? AVANTSERVICE_CONFIG.API_BLOG : 'http://localhost:3000/api/blog')
+        .then(function(r) { return r.json(); })
+        .then(function(posts) {
+            var grid = document.getElementById('recent-blog-grid');
+            var recientes = posts.slice(0, 6);
+            if (!recientes.length) {
+                grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:var(--text-secondary);padding:30px 0;">No hay artículos publicados aún.</div>';
+                return;
+            }
+            function makeCard(p, i, featured) {
+                var img = p.emoji && p.emoji.startsWith('http')
+                    ? '<img src="' + p.emoji + '" style="width:100%;height:100%;object-fit:cover;" alt="portada">'
+                    : p.emoji;
+                var cls = 'rb-card' + (featured ? ' rb-featured' : '');
+                var delay = featured ? 0 : (i * 0.15);
+                return '<a class="' + cls + '" href="articulo.html?slug=' + encodeURIComponent(p.slug) + '" style="transition:opacity 0.6s ' + delay + 's ease,transform 0.6s ' + delay + 's ease,border-color 0.25s;">' +
+                    '<div class="rb-card-img">' + img + '</div>' +
+                    '<div class="rb-card-body">' +
+                        '<div class="rb-card-meta">' +
+                            '<span class="rb-card-cat">' + esc(p.categoria) + '</span>' +
+                            '<span class="rb-card-date">' + formatFecha(p.fecha) + '</span>' +
+                        '</div>' +
+                        '<h3>' + esc(p.titulo) + '</h3>' +
+                        '<p>' + esc(p.resumen) + '</p>' +
+                        '<span class="rb-card-link">Leer más →</span>' +
+                    '</div>' +
+                '</a>';
+            }
+
+            var featured = recientes[0];
+            var secondary = recientes.slice(1);
+
+            var html = makeCard(featured, 0, true);
+
+            if (secondary.length) {
+                html += '<div class="rb-secondary-row"><div class="rb-secondary-track">' +
+                    secondary.map(function(p, i) { return makeCard(p, i + 1, false); }).join('') +
+                '</div></div>';
+            }
+
+            grid.innerHTML = html;
+
+            // Animar entrada con observer
+            // Solo observar la tarjeta featured (las secundarias se marcan visibles antes del loop)
+            document.querySelectorAll('#recent-blog-grid .rb-featured').forEach(function(el) {
+                blogObserver.observe(el);
+            });
+            document.querySelectorAll('#recent-blog-grid .rb-secondary-track .rb-card').forEach(function(el) {
+                el.classList.add('visible');
+            });
+
+            // Carrusel infinito: duplicar tarjetas y resetear posición al llegar al medio
+            if (secondary.length > 0) {
+                var row   = grid.querySelector('.rb-secondary-row');
+                var track = grid.querySelector('.rb-secondary-track');
+                if (row && track) {
+                    // Hacer visibles las tarjetas originales antes de duplicar
+                    track.querySelectorAll('.rb-card').forEach(function(el) {
+                        el.classList.add('visible');
+                    });
+                    // Duplicar el contenido para el loop
+                    track.innerHTML += track.innerHTML;
+
+                    var paused = false;
+                    var speed  = 0.6;
+                    row.addEventListener('mouseenter', function() { paused = true; });
+                    row.addEventListener('mouseleave', function() { paused = false; });
+
+                    function autoScroll() {
+                        if (!paused) {
+                            row.scrollLeft += speed;
+                            // Al llegar a la mitad (el duplicado), vuelve silenciosamente al inicio
+                            if (row.scrollLeft >= track.scrollWidth / 2) {
+                                row.scrollLeft = 0;
+                            }
+                        }
+                        requestAnimationFrame(autoScroll);
+                    }
+                    requestAnimationFrame(autoScroll);
+                }
+            }
+        })
+        .catch(function() {
+            document.getElementById('recent-blog-grid').style.display = 'none';
+            document.querySelector('.recent-blog-section').style.display = 'none';
+        });
+})();
+</script>
+
+<script>
+(function () {
+  var canvas = document.getElementById('particle-canvas');
+  var ctx = canvas.getContext('2d');
+  var particles = [];
+
+  function resize() { canvas.width = innerWidth; canvas.height = innerHeight; }
+  resize();
+
+  var resizeTimeout;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(resize, 200);
+  });
+
+  function newParticle() {
+    return {
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 2.4 + 0.6,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: -(Math.random() * 0.4 + 0.1),
+      alpha: Math.random() * 0.75 + 0.35,
+      color: (function() {
+        var light = document.documentElement.getAttribute('data-theme') === 'light';
+        if (light) return Math.random() > 0.6 ? '255,122,0' : '220,38,38';
+        return Math.random() > 0.6 ? '0,240,255' : '0,87,255';
+      })(),
+      life: 0,
+      maxLife: 200 + Math.random() * 200
+    };
+  }
+
+  for (var i = 0; i < 60; i++) particles.push(newParticle());
+
+  function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (var i = 0; i < particles.length; i++) {
+      var p = particles[i];
+      p.life++;
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.x < -10 || p.x > canvas.width + 10 || p.y < -10 || p.y > canvas.height + 10) {
+        particles[i] = newParticle();
+        continue;
+      }
+      var fade = p.life < 30 ? p.life / 30 : p.life > p.maxLife - 30 ? (p.maxLife - p.life) / 30 : 1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(' + p.color + ',' + (p.alpha * fade) + ')';
+      ctx.fill();
+      if (p.life >= p.maxLife) particles[i] = newParticle();
+    }
+    requestAnimationFrame(loop);
+  }
+  loop();
+})();
+</script>
+
+</body>
+</html>
+
+
+
+
+
+

@@ -1,3 +1,0 @@
-RewriteEngine On
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-SetEnvIf Authorization "(.*)" HTTP_AUTHORIZATION=$1

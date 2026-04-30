@@ -59,6 +59,8 @@ const CSRF_EXEMPT = new Set(['/api/auth/login', '/api/portal/login', '/contacto'
 app.use((req, res, next) => {
     if (CSRF_SAFE_METHODS.has(req.method)) return next();
     if (CSRF_EXEMPT.has(req.path))         return next();
+    // Endpoints públicos de la tienda — sin sesión de admin, no aplican CSRF.
+    if (req.path.startsWith('/backendstore/')) return next();
 
     const cookieToken = req.cookies?.av_csrf ?? '';
     const headerToken = (req.headers['x-csrf-token'] ?? '').trim();
@@ -118,6 +120,7 @@ app.use(cookieParser());
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/backendstore/img', express.static(path.join(__dirname, 'uploads', 'store')));
 app.get('/portal.html', (_req, res) => res.sendFile(path.join(__dirname, 'portal.html')));
 
 // ── Rutas ─────────────────────────────────────────────────────────────────────
@@ -142,6 +145,7 @@ app.use('/api/portal/login', loginLimiter);
 app.use('/api/auth',         require('./routes/auth'));
 app.use('/contacto',      contactoLimiter);
 app.use('/api/diy',       contactoLimiter);
+app.use('/backendstore',  require('./routes/store'));
 app.use('/',              require('./routes/formularios'));
 
 // ── 404 y error handlers ──────────────────────────────────────────────────────
@@ -159,6 +163,15 @@ app.use((err, req, res, _next) => {
 async function runMigrations() {
     const conn = await pool.getConnection();
     try {
+        try {
+            const fs = require('fs');
+            const raw = fs.readFileSync(path.join(__dirname, 'sql', 'store_schema.sql'), 'utf8');
+            const cleaned = raw.split('\n').filter(l => !l.trim().startsWith('--')).join('\n');
+            const stmts = cleaned.split(/;\s*[\r\n]/).map(s => s.trim()).filter(Boolean);
+            for (const s of stmts) await conn.query(s);
+        } catch (e) { console.warn('Migration store_schema:', e.message); }
+
+
         try {
             const [cols] = await conn.query(
                 `SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS

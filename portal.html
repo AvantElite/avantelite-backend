@@ -267,9 +267,10 @@
   <div class="loading-state">Cargando…</div>
 </div>
 
+<script src="config.js"></script>
 <script>
 (function () {
-  var API = 'http://localhost:3000';
+  var API = (typeof AVANTSERVICE_CONFIG !== 'undefined') ? AVANTSERVICE_CONFIG.BASE_URL : 'http://localhost:3000';
   var token = new URLSearchParams(window.location.search).get('token');
   var root = document.getElementById('root');
   var pollInterval = null;

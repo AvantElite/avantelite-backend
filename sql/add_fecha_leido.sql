@@ -1,2 +1,0 @@
-USE backendavant;
-ALTER TABLE contactos ADD COLUMN IF NOT EXISTS fecha_leido DATETIME NULL DEFAULT NULL;

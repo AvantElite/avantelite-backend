@@ -48,7 +48,7 @@ async function getPermisos(rol) {
     const [rows] = await pool.query('SELECT permisos FROM roles WHERE nombre=? LIMIT 1', [rol]);
     if (rows.length) { try { return JSON.parse(rows[0].permisos); } catch { /* fallback */ } }
     return rol === 'administrador'
-        ? ['Dashboard','Mensajes','Historial','Blog','Analíticas','Usuarios','Contexto IA']
+        ? ['Dashboard','Mensajes','Historial','Blog','Servicios','Analíticas','Usuarios','Contexto IA']
         : ['Mensajes','Historial'];
 }
 

@@ -134,6 +134,8 @@ app.use('/api/contactos', require('./routes/contactos'));
 app.use('/api',           require('./routes/presupuestos'));
 app.use('/api/chat',      require('./routes/chat'));
 app.use('/api/blog',      require('./routes/blog'));
+app.use('/api/servicios',       require('./routes/servicios'));
+app.use('/api/tipos_problema',  require('./routes/tipos_problema'));
 app.use('/api/track',               trackLimiter);
 app.use('/api/presupuesto/aceptar', presupuestoAceptarLimiter);
 app.use('/api',           require('./routes/analytics'));
@@ -201,6 +203,111 @@ async function runMigrations() {
                 )
             `);
         } catch (e) { console.warn('Migration portal_sesiones:', e.message); }
+
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS servicios (
+                    id          INT AUTO_INCREMENT PRIMARY KEY,
+                    nombre      VARCHAR(255) NOT NULL,
+                    descripcion TEXT,
+                    icono       VARCHAR(64)  DEFAULT 'wrench',
+                    imagen      VARCHAR(512),
+                    orden       INT          DEFAULT 0,
+                    activo      TINYINT(1)   DEFAULT 1,
+                    subservicios JSON,
+                    creado_en   TIMESTAMP    DEFAULT CURRENT_TIMESTAMP,
+                    actualizado TIMESTAMP    DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+            const [[{ c }]] = await conn.query('SELECT COUNT(*) AS c FROM servicios');
+            if (c === 0) {
+                const defaults = [
+                    {
+                        nombre: 'Televisores',
+                        descripcion: 'Reparamos todo tipo de televisores: LED, OLED, QLED y Smart TV con piezas originales y garantía de servicio.',
+                        icono: 'tv', imagen: '', orden: 1,
+                        subservicios: [
+                            { nombre: 'Problemas de Imagen', descripcion: 'Pantalla negra, líneas, colores o brillo incorrectos.', icono: 'monitor', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Pantalla negra con sonido', tipo_problema: 'fallo-electrico' }, { texto: 'Líneas verticales u horizontales', tipo_problema: 'fallo-electrico' }, { texto: 'Falta de brillo (backlight)', tipo_problema: 'fallo-electrico' }, { texto: 'Colores distorsionados o manchas', tipo_problema: 'fallo-electrico' }, { texto: 'Imagen parpadeante o inestable', tipo_problema: 'fallo-electrico' }] },
+                            { nombre: 'Problemas de Encendido', descripcion: 'No enciende, LED parpadea o se apaga solo.', icono: 'zap', es_directo: true, tipo_problema: 'fallo-electrico', opciones: [] },
+                            { nombre: 'Software y Conectividad', descripcion: 'Firmware, Wi-Fi, apps o errores de Smart TV.', icono: 'wifi', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Actualización de firmware fallida', tipo_problema: 'error-software' }, { texto: 'Wi-Fi no conecta o se desconecta', tipo_problema: 'error-software' }, { texto: 'Apps que no cargan (Netflix, YouTube…)', tipo_problema: 'error-software' }] },
+                        ]
+                    },
+                    {
+                        nombre: 'Electrodomésticos', descripcion: 'Servicio técnico especializado en lavadoras, frigoríficos, hornos, lavavajillas y más, a domicilio.', icono: 'washing-machine', imagen: '', orden: 2,
+                        subservicios: [
+                            { nombre: 'Lavadoras y Secadoras', descripcion: 'Gomas, bombas, motor, centrifugado y placa base.', icono: 'washing-machine', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Ruidos o vibraciones anormales', tipo_problema: 'ruido-extrano' }, { texto: 'Fuga de agua', tipo_problema: 'fuga-agua' }, { texto: 'No centrifuga o no termina el ciclo', tipo_problema: 'fallo-electrico' }, { texto: 'Error en panel o placa base', tipo_problema: 'fallo-electrico' }] },
+                            { nombre: 'Frigoríficos y Congeladores', descripcion: 'Gas, compresor, escarcha y termostato digital.', icono: 'refrigerator', es_directo: false, tipo_problema: '', opciones: [{ texto: 'No enfría correctamente', tipo_problema: 'fuga-agua' }, { texto: 'Acumulación de escarcha (No Frost)', tipo_problema: 'fallo-electrico' }, { texto: 'Ruido excesivo del compresor', tipo_problema: 'ruido-extrano' }] },
+                            { nombre: 'Hornos y Vitrocerámicas', descripcion: 'Resistencias, selectores, vidrios e inducción.', icono: 'flame', es_directo: true, tipo_problema: 'fallo-electrico', opciones: [] },
+                        ]
+                    },
+                    {
+                        nombre: 'Calderas y Calefacción', descripcion: 'Reparación y mantenimiento de calderas y sistemas de calefacción. Revisiones preventivas y detección de fugas.', icono: 'flame', imagen: '', orden: 3,
+                        subservicios: [
+                            { nombre: 'Calderas de Gas y Gasoil', descripcion: 'Quemadores, bomba, vaso de expansión y panel.', icono: 'fuel', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Fuga de agua o gas', tipo_problema: 'fuga-agua' }, { texto: 'Caldera no enciende o da error', tipo_problema: 'fallo-electrico' }, { texto: 'Mantenimiento anual preventivo', tipo_problema: 'otros' }] },
+                            { nombre: 'Radiadores y Circuitos', descripcion: 'Purgado, ruidos, fugas y equilibrado de calor.', icono: 'waves', es_directo: true, tipo_problema: 'ruido-extrano', opciones: [] },
+                            { nombre: 'Termostatos Inteligentes', descripcion: 'Instalación y configuración Wifi.', icono: 'thermometer', es_directo: true, tipo_problema: 'error-software', opciones: [] },
+                        ]
+                    },
+                ];
+                for (const s of defaults) {
+                    await conn.query(
+                        'INSERT INTO servicios (nombre, descripcion, icono, imagen, orden, activo, subservicios) VALUES (?,?,?,?,?,1,?)',
+                        [s.nombre, s.descripcion, s.icono, s.imagen, s.orden, JSON.stringify(s.subservicios)]
+                    );
+                }
+            } else {
+                // Actualizar servicios existentes que tengan subservicios vacíos
+                for (const s of [
+                    { nombre: 'Televisores', subservicios: [
+                        { nombre: 'Problemas de Imagen', descripcion: 'Pantalla negra, líneas, colores o brillo incorrectos.', icono: 'monitor', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Pantalla negra con sonido', tipo_problema: 'fallo-electrico' }, { texto: 'Líneas verticales u horizontales', tipo_problema: 'fallo-electrico' }, { texto: 'Falta de brillo (backlight)', tipo_problema: 'fallo-electrico' }, { texto: 'Colores distorsionados o manchas', tipo_problema: 'fallo-electrico' }] },
+                        { nombre: 'Problemas de Encendido', descripcion: 'No enciende, LED parpadea o se apaga solo.', icono: 'zap', es_directo: true, tipo_problema: 'fallo-electrico', opciones: [] },
+                        { nombre: 'Software y Conectividad', descripcion: 'Firmware, Wi-Fi, apps o errores de Smart TV.', icono: 'wifi', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Actualización de firmware fallida', tipo_problema: 'error-software' }, { texto: 'Wi-Fi no conecta o se desconecta', tipo_problema: 'error-software' }, { texto: 'Apps que no cargan (Netflix, YouTube…)', tipo_problema: 'error-software' }] },
+                    ]},
+                    { nombre: 'Electrodomésticos', subservicios: [
+                        { nombre: 'Lavadoras y Secadoras', descripcion: 'Gomas, bombas, motor, centrifugado y placa base.', icono: 'washing-machine', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Ruidos o vibraciones anormales', tipo_problema: 'ruido-extrano' }, { texto: 'Fuga de agua', tipo_problema: 'fuga-agua' }, { texto: 'No centrifuga o no termina el ciclo', tipo_problema: 'fallo-electrico' }, { texto: 'Error en panel o placa base', tipo_problema: 'fallo-electrico' }] },
+                        { nombre: 'Frigoríficos y Congeladores', descripcion: 'Gas, compresor, escarcha y termostato digital.', icono: 'refrigerator', es_directo: false, tipo_problema: '', opciones: [{ texto: 'No enfría correctamente', tipo_problema: 'fuga-agua' }, { texto: 'Acumulación de escarcha (No Frost)', tipo_problema: 'fallo-electrico' }, { texto: 'Ruido excesivo del compresor', tipo_problema: 'ruido-extrano' }] },
+                        { nombre: 'Hornos y Vitrocerámicas', descripcion: 'Resistencias, selectores, vidrios e inducción.', icono: 'flame', es_directo: true, tipo_problema: 'fallo-electrico', opciones: [] },
+                    ]},
+                    { nombre: 'Calderas y Calefacción', subservicios: [
+                        { nombre: 'Calderas de Gas y Gasoil', descripcion: 'Quemadores, bomba, vaso de expansión y panel.', icono: 'fuel', es_directo: false, tipo_problema: '', opciones: [{ texto: 'Fuga de agua o gas', tipo_problema: 'fuga-agua' }, { texto: 'Caldera no enciende o da error', tipo_problema: 'fallo-electrico' }, { texto: 'Mantenimiento anual preventivo', tipo_problema: 'otros' }] },
+                        { nombre: 'Radiadores y Circuitos', descripcion: 'Purgado, ruidos, fugas y equilibrado de calor.', icono: 'waves', es_directo: true, tipo_problema: 'ruido-extrano', opciones: [] },
+                        { nombre: 'Termostatos Inteligentes', descripcion: 'Instalación y configuración Wifi.', icono: 'thermometer', es_directo: true, tipo_problema: 'error-software', opciones: [] },
+                    ]},
+                ]) {
+                    const [[row]] = await conn.query('SELECT subservicios FROM servicios WHERE nombre=?', [s.nombre]);
+                    if (row) {
+                        let subs = [];
+                        try {
+                            const raw = row.subservicios;
+                            subs = raw ? (typeof raw === 'string' ? JSON.parse(raw.trim()) : raw) : [];
+                        } catch (_) { /* JSON inválido — se actualiza */ }
+                        if (!Array.isArray(subs) || !subs.length) {
+                            await conn.query('UPDATE servicios SET subservicios=? WHERE nombre=?', [JSON.stringify(s.subservicios), s.nombre]);
+                        }
+                    }
+                }
+            }
+        } catch (e) { console.warn('Migration servicios:', e.message); }
+
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS tipos_problema (
+                    id     INT AUTO_INCREMENT PRIMARY KEY,
+                    nombre VARCHAR(64) NOT NULL UNIQUE
+                )
+            `);
+            const [[{ c }]] = await conn.query('SELECT COUNT(*) AS c FROM tipos_problema');
+            if (c === 0) {
+                const defaults = [
+                    'fallo-electrico', 'fallo-mecanico', 'fallo-software',
+                    'no-enciende', 'no-enfria', 'no-calienta',
+                    'fuga-agua', 'ruido-anomalo', 'pantalla-rota',
+                    'problemas-imagen', 'problemas-sonido', 'otros',
+                ];
+                for (const nombre of defaults)
+                    await conn.query('INSERT IGNORE INTO tipos_problema (nombre) VALUES (?)', [nombre]);
+            }
+        } catch (e) { console.warn('Migration tipos_problema:', e.message); }
 
         try {
             await conn.query(`

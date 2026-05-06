@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 
 // ── Validación de variables de entorno críticas ───────────────────────────────
 const REQUIRED_ENV = ['DB_HOST', 'DB_USER', 'DB_NAME'];

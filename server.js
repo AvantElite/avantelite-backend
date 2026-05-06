@@ -47,6 +47,11 @@ app.use((_req, res, next) => {
     next();
 });
 
+// ── Body / cookie parser (antes del CSRF) ─────────────────────────────────────
+app.use(cookieParser());
+app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
 // ── Protección CSRF (double-submit cookie) ────────────────────────────────────
 // Los endpoints de mutación requieren el header X-CSRF-Token con el valor de la
 // cookie av_csrf (no-httpOnly), impidiendo ataques cross-site con credenciales.
@@ -115,10 +120,7 @@ const presupuestoAceptarLimiter = rateLimit({
 
 app.use(globalLimiter);
 
-// ── Body / static ─────────────────────────────────────────────────────────────
-app.use(cookieParser());
-app.use(express.json({ limit: '2mb' }));
-app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+// ── Static ────────────────────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use('/backendstore/img', express.static(path.join(__dirname, 'uploads', 'store')));
 app.get('/portal.html', (_req, res) => res.sendFile(path.join(__dirname, 'portal.html')));

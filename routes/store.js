@@ -1,30 +1,10 @@
 const express = require('express');
-const path    = require('path');
-const fs      = require('fs');
-const crypto  = require('crypto');
-const multer  = require('multer');
 const bcrypt  = require('bcryptjs');
 const pool    = require('../db');
+const { upload } = require('../upload');
+const { uploadBuffer } = require('../cloudinary');
 
 const router = express.Router();
-
-// ── Subida de imágenes de producto ────────────────────────────────────────────
-const IMG_DIR = path.join(__dirname, '..', 'uploads', 'store');
-fs.mkdirSync(IMG_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-    destination: IMG_DIR,
-    filename: (_req, file, cb) => {
-        const ext  = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
-        const rand = crypto.randomBytes(16).toString('hex');
-        cb(null, `${rand}${ext}`);
-    },
-});
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
-
-function imgPublicUrl(req, filename) {
-    return `${req.protocol}://${req.get('host')}/backendstore/img/${filename}`;
-}
 
 // ── PRODUCTOS ─────────────────────────────────────────────────────────────────
 
@@ -110,7 +90,10 @@ router.post('/add_producto.php', upload.single('imagen_file'), async (req, res, 
     try {
         const { marca, modelo, precio, categoria_id, stock, eficiencia } = req.body;
         let { imagen_url } = req.body;
-        if (req.file) imagen_url = imgPublicUrl(req, req.file.filename);
+        if (req.file) {
+            const r = await uploadBuffer(req.file.buffer, { folder: 'store', resource_type: 'image' });
+            imagen_url = r.secure_url;
+        }
 
         if (!marca || !modelo || precio == null) {
             return res.json({ status: 'error', message: 'Faltan campos obligatorios' });
@@ -144,7 +127,10 @@ router.post('/update_producto.php', upload.single('imagen_file'), async (req, re
         const data = (req.body && Object.keys(req.body).length) ? req.body : {};
         const { id, marca, modelo, precio, stock, categoria_id, eficiencia } = data;
         let { imagen_url } = data;
-        if (req.file) imagen_url = imgPublicUrl(req, req.file.filename);
+        if (req.file) {
+            const r = await uploadBuffer(req.file.buffer, { folder: 'store', resource_type: 'image' });
+            imagen_url = r.secure_url;
+        }
 
         if (!id || !marca || !modelo || precio == null) {
             return res.json({ status: 'error', message: 'Faltan datos (ID, Marca, Modelo, Precio)' });

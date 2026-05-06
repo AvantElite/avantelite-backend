@@ -1,7 +1,4 @@
-const crypto = require('crypto');
-const multer  = require('multer');
-const path    = require('path');
-const fs      = require('fs');
+const multer = require('multer');
 
 const FILE_SIGNATURES = {
     '.jpg':  [{ offset: 0, bytes: [0xFF, 0xD8, 0xFF] }],
@@ -14,27 +11,13 @@ const FILE_SIGNATURES = {
     '.docx': [{ offset: 0, bytes: [0x50, 0x4B, 0x03, 0x04] }],
 };
 
-function validateMagicBytes(filePath, ext) {
+function validateMagicBytes(buffer, ext) {
     const sigs = FILE_SIGNATURES[ext];
     if (!sigs) return true;
-    const needed = Math.max(...sigs.map(s => s.offset + s.bytes.length));
-    const buf = Buffer.alloc(needed, 0);
-    const fd = fs.openSync(filePath, 'r');
-    try { fs.readSync(fd, buf, 0, needed, 0); }
-    finally { fs.closeSync(fd); }
-    return sigs.every(sig => sig.bytes.every((b, i) => buf[sig.offset + i] === b));
+    return sigs.every(sig => sig.bytes.every((b, i) => buffer[sig.offset + i] === b));
 }
 
-const storage = multer.diskStorage({
-    destination: path.join(__dirname, 'uploads'),
-    filename: (_req, file, cb) => {
-        const ext  = path.extname(file.originalname).toLowerCase().replace(/[^a-z0-9.]/g, '');
-        const rand = crypto.randomBytes(16).toString('hex');
-        cb(null, `${rand}${ext}`);
-    },
-});
-
-const upload = multer({ storage, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 const ALLOWED_CHAT_EXTENSIONS  = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.txt']);
 const ALLOWED_IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);

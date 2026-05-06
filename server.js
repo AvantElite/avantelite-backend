@@ -120,9 +120,11 @@ const presupuestoAceptarLimiter = rateLimit({
 
 app.use(globalLimiter);
 
+// ── Health check (usado por Railway) ─────────────────────────────────────────
+app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
 // ── Static ────────────────────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-app.use('/backendstore/img', express.static(path.join(__dirname, 'uploads', 'store')));
+
 app.get('/portal.html', (_req, res) => res.sendFile(path.join(__dirname, 'portal.html')));
 
 // ── Rutas ─────────────────────────────────────────────────────────────────────
@@ -164,11 +166,11 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Migraciones y arranque ────────────────────────────────────────────────────
+
 async function runMigrations() {
     const conn = await pool.getConnection();
     try {
         try {
-            const fs = require('fs');
             const raw = fs.readFileSync(path.join(__dirname, 'sql', 'store_schema.sql'), 'utf8');
             const cleaned = raw.split('\n').filter(l => !l.trim().startsWith('--')).join('\n');
             const stmts = cleaned.split(/;\s*[\r\n]/).map(s => s.trim()).filter(Boolean);

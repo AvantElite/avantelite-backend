@@ -12,6 +12,7 @@ uploads/*
 
 # Logs
 *.log
+*.err
 logs/
 
 # OS

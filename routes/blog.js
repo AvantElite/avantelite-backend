@@ -1,10 +1,10 @@
-const fs      = require('fs');
 const path    = require('path');
 const { Router } = require('express');
 const pool    = require('../db');
 const { asyncHandler, slugify, uniqueSlug } = require('../helpers');
 const { requireAuth, requireAdmin } = require('../auth');
 const { upload, ALLOWED_IMAGE_EXTENSIONS, validateMagicBytes } = require('../upload');
+const { uploadBuffer } = require('../cloudinary');
 
 const router = Router();
 
@@ -82,17 +82,14 @@ router.delete('/', asyncHandler(async (req, res) => {
 }));
 
 router.post('/upload-imagen', upload.single('imagen'), asyncHandler(async (req, res) => {
-    if (!await requireAdmin(req, res)) {
-        if (req.file) fs.unlinkSync(req.file.path);
-        return;
-    }
+    if (!await requireAdmin(req, res)) return;
     if (!req.file) return res.status(400).json({ error: 'No se recibió imagen.' });
     const ext = path.extname(req.file.originalname).toLowerCase();
-    if (!ALLOWED_IMAGE_EXTENSIONS.has(ext) || !validateMagicBytes(req.file.path, ext)) {
-        fs.unlinkSync(req.file.path);
+    if (!ALLOWED_IMAGE_EXTENSIONS.has(ext) || !validateMagicBytes(req.file.buffer, ext)) {
         return res.status(400).json({ error: 'Tipo de archivo no permitido o contenido inválido. Usa JPG, PNG, GIF o WebP.' });
     }
-    res.json({ success: true, url: `/uploads/${req.file.filename}` });
+    const result = await uploadBuffer(req.file.buffer, { folder: 'blog', resource_type: 'image' });
+    res.json({ success: true, url: result.secure_url });
 }));
 
 module.exports = router;

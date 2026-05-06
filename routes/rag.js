@@ -1,4 +1,3 @@
-const fs      = require('fs');
 const path    = require('path');
 const { Router } = require('express');
 const pool    = require('../db');
@@ -47,21 +46,14 @@ router.post('/rag/eliminar', asyncHandler(async (req, res) => {
 }));
 
 router.post('/rag/subir', upload.single('archivo'), asyncHandler(async (req, res) => {
-    if (!await requireAdmin(req, res)) {
-        if (req.file) fs.unlinkSync(req.file.path);
-        return;
-    }
+    if (!await requireAdmin(req, res)) return;
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No se recibió ningún archivo.' });
-    const ext     = path.extname(file.originalname).toLowerCase().slice(1);
-    const allowed = ['txt', 'md', 'csv'];
-    if (!allowed.includes(ext)) {
-        fs.unlinkSync(file.path);
-        return res.status(400).json({ error: 'Formato no soportado. Usa TXT, MD o CSV (PDF no disponible sin dependencia adicional).' });
+    const ext = path.extname(file.originalname).toLowerCase().slice(1);
+    if (!['txt', 'md', 'csv'].includes(ext)) {
+        return res.status(400).json({ error: 'Formato no soportado. Usa TXT, MD o CSV.' });
     }
-    const raw = fs.readFileSync(file.path, 'utf8');
-    fs.unlinkSync(file.path);
-    const contenido = raw.trim().slice(0, 100_000);
+    const contenido = file.buffer.toString('utf8').trim().slice(0, 100_000);
     const titulo = path.basename(file.originalname, path.extname(file.originalname)).replace(/[_-]+/g, ' ');
     res.json({ titulo, contenido });
 }));

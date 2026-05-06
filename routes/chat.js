@@ -1,5 +1,5 @@
-const fs      = require('fs');
 const path    = require('path');
+const { uploadBuffer } = require('../cloudinary');
 const { Router } = require('express');
 const pool    = require('../db');
 const { asyncHandler }            = require('../helpers');
@@ -116,26 +116,23 @@ router.post('/upload', upload.single('archivo'), asyncHandler(async (req, res) =
         return res.status(400).json({ error: 'Datos inválidos.' });
 
     if (sender === 'tecnico') {
-        if (!await requireAuth(req, res)) {
-            if (req.file) fs.unlinkSync(req.file.path);
-            return;
-        }
+        if (!await requireAuth(req, res)) return;
     } else {
         const pt = (req.headers['x-portal-token'] ?? '').trim();
-        if (!await checkPortalSession(pt, token)) {
-            if (req.file) fs.unlinkSync(req.file.path);
+        if (!await checkPortalSession(pt, token))
             return res.status(401).json({ error: 'No autorizado.' });
-        }
     }
 
     let archivoUrl = null;
     if (req.file) {
         const ext = path.extname(req.file.originalname).toLowerCase();
-        if (!ALLOWED_CHAT_EXTENSIONS.has(ext) || !validateMagicBytes(req.file.path, ext)) {
-            fs.unlinkSync(req.file.path);
+        if (!ALLOWED_CHAT_EXTENSIONS.has(ext) || !validateMagicBytes(req.file.buffer, ext)) {
             return res.status(400).json({ error: 'Tipo de archivo no permitido o contenido inválido.' });
         }
-        archivoUrl = `/uploads/${req.file.filename}`;
+        const IMAGE_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp']);
+        const resourceType = IMAGE_EXTS.has(ext) ? 'image' : 'raw';
+        const result = await uploadBuffer(req.file.buffer, { folder: 'chat', resource_type: resourceType });
+        archivoUrl = result.secure_url;
     }
 
     const [result] = await pool.query(

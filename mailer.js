@@ -1,25 +1,57 @@
 require('dotenv').config();
-const nodemailer = require('nodemailer');
 
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const mailer = nodemailer.createTransport({
-    host:   process.env.SMTP_HOST,
-    port:   SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD,
-    },
-});
+const ZOHO_TOKEN_URL  = 'https://accounts.zoho.eu/oauth/v2/token';
+const ZOHO_API_BASE   = 'https://mail.zoho.eu/api/accounts';
+
+let _accessToken     = null;
+let _accessTokenExp  = 0;
+
+async function getAccessToken() {
+    if (_accessToken && Date.now() < _accessTokenExp) return _accessToken;
+
+    const params = new URLSearchParams({
+        client_id:     process.env.ZOHO_CLIENT_ID,
+        client_secret: process.env.ZOHO_CLIENT_SECRET,
+        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
+        grant_type:    'refresh_token',
+    });
+
+    const res  = await fetch(ZOHO_TOKEN_URL, { method: 'POST', body: params });
+    const data = await res.json();
+    if (!data.access_token) throw new Error('Zoho token error: ' + JSON.stringify(data));
+
+    _accessToken    = data.access_token;
+    _accessTokenExp = Date.now() + (data.expires_in - 60) * 1000;
+    return _accessToken;
+}
 
 async function sendMail({ to, toName, subject, html, replyTo } = {}) {
-    await mailer.sendMail({
-        from:    `"${process.env.MAIL_FROM_NAME}" <${process.env.MAIL_FROM}>`,
-        to:      toName ? { name: toName, address: to } : to,
+    const token     = await getAccessToken();
+    const accountId = process.env.ZOHO_ACCOUNT_ID;
+    const fromAddr  = process.env.MAIL_FROM;
+    const fromName  = process.env.MAIL_FROM_NAME || 'AvantService';
+
+    const body = {
+        fromAddress: fromAddr,
+        toAddress:   to,
         subject,
-        html,
+        content:     html,
+        mailFormat:  'html',
+        fromName,
         ...(replyTo ? { replyTo } : {}),
+    };
+
+    const res  = await fetch(`${ZOHO_API_BASE}/${accountId}/messages`, {
+        method:  'POST',
+        headers: {
+            'Authorization': `Zoho-oauthtoken ${token}`,
+            'Content-Type':  'application/json',
+        },
+        body: JSON.stringify(body),
     });
+
+    const data = await res.json();
+    if (data.status?.code !== 200) throw new Error('Zoho send error: ' + JSON.stringify(data));
 }
 
 const emailShell = (content) => `

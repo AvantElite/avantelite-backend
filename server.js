@@ -60,7 +60,7 @@ const CSRF_SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 // /api/presupuesto/aceptar es llamado desde el portal del cliente (portal.html),
 // que no tiene sesión de admin ni cookie av_csrf. La seguridad recae en el token
 // de presupuesto (256 bits de entropía). Añadimos rate limit específico abajo.
-const CSRF_EXEMPT = new Set(['/api/auth/login', '/api/portal/login', '/contacto', '/api/diy', '/api/presupuesto/aceptar']);
+const CSRF_EXEMPT = new Set(['/api/auth/login', '/api/portal/login', '/contacto', '/api/diy', '/api/presupuesto/aceptar', '/api/track']);
 
 app.use((req, res, next) => {
     if (CSRF_SAFE_METHODS.has(req.method)) return next();

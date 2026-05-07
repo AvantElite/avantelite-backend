@@ -37,7 +37,6 @@ async function sendMail({ to, toName, subject, html, replyTo } = {}) {
         subject,
         content:     html,
         mailFormat:  'html',
-        fromName,
         ...(replyTo ? { replyTo } : {}),
     };
 

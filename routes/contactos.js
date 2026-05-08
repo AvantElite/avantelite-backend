@@ -53,7 +53,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
     const [dist]          = await pool.query('SELECT producto as name, COUNT(*) as value FROM contactos GROUP BY producto');
     const [recienteRaw]   = await pool.query('SELECT nombre,apellido,email,producto,problema,dificultad,tipo,fecha_creacion,leido FROM contactos ORDER BY fecha_creacion DESC LIMIT 8');
     const [mensualRaw]    = await pool.query("SELECT DATE_FORMAT(MIN(fecha_creacion),'%b') as mes, COUNT(*) as recibidos, SUM(CASE WHEN leido=1 THEN 1 ELSE 0 END) as leidos FROM contactos WHERE fecha_creacion > DATE_SUB(NOW(), INTERVAL 12 MONTH) GROUP BY YEAR(fecha_creacion), MONTH(fecha_creacion) ORDER BY YEAR(fecha_creacion), MONTH(fecha_creacion) ASC");
-    const [diarioRaw]     = await pool.query("SELECT DATE_FORMAT(DATE(fecha_creacion),'%a') as dia, COUNT(*) as contactos FROM contactos WHERE fecha_creacion > DATE_SUB(NOW(), INTERVAL 7 DAY) GROUP BY DATE(fecha_creacion) ORDER BY DATE(fecha_creacion) ASC");
+    const [diarioRaw]     = await pool.query("SELECT DATE_FORMAT(DATE(MIN(fecha_creacion)),'%a') as dia, COUNT(*) as contactos FROM contactos WHERE fecha_creacion > DATE_SUB(NOW(), INTERVAL 7 DAY) GROUP BY DATE(fecha_creacion) ORDER BY DATE(fecha_creacion) ASC");
 
     const [[mesActual]]   = await pool.query("SELECT COUNT(*) as total, SUM(CASE WHEN leido=1 THEN 1 ELSE 0 END) as leidos FROM contactos WHERE YEAR(fecha_creacion)=YEAR(NOW()) AND MONTH(fecha_creacion)=MONTH(NOW())");
     const [[mesAnterior]] = await pool.query("SELECT COUNT(*) as total, SUM(CASE WHEN leido=1 THEN 1 ELSE 0 END) as leidos FROM contactos WHERE YEAR(fecha_creacion)=YEAR(DATE_SUB(NOW(), INTERVAL 1 MONTH)) AND MONTH(fecha_creacion)=MONTH(DATE_SUB(NOW(), INTERVAL 1 MONTH))");

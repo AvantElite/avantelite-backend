@@ -51,6 +51,7 @@ router.post('/login', asyncHandler(async (req, res) => {
     const permisos = await getPermisos(user.rol);
     res.json({
         success: true,
+        csrfToken,
         user: { id: user.id, nombre: user.nombre, email: user.email, rol: user.rol, permisos },
     });
 }));
@@ -63,9 +64,11 @@ router.get('/me', asyncHandler(async (req, res) => {
         [tkn]
     );
     if (!rows.length) return res.json({ user: null });
-    const u        = rows[0];
-    const permisos = await getPermisos(u.rol);
-    res.json({ user: { id: u.id, nombre: u.nombre, email: u.email, rol: u.rol, permisos } });
+    const u          = rows[0];
+    const permisos   = await getPermisos(u.rol);
+    const csrfToken  = crypto.randomBytes(32).toString('hex');
+    res.cookie('av_csrf', csrfToken, CSRF_COOKIE_OPTS);
+    res.json({ csrfToken, user: { id: u.id, nombre: u.nombre, email: u.email, rol: u.rol, permisos } });
 }));
 
 router.post('/logout', asyncHandler(async (req, res) => {

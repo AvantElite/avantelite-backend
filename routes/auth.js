@@ -74,8 +74,8 @@ router.get('/me', asyncHandler(async (req, res) => {
 router.post('/logout', asyncHandler(async (req, res) => {
     const tkn = (req.cookies?.av_token ?? req.headers['x-token'] ?? '').trim();
     if (tkn) await pool.query('DELETE FROM sesiones WHERE token=?', [tkn]);
-    res.clearCookie('av_token', { path: '/' });
-    res.clearCookie('av_csrf',  { path: '/' });
+    res.clearCookie('av_token', { path: '/', sameSite: 'none', secure: true });
+    res.clearCookie('av_csrf',  { path: '/', sameSite: 'none', secure: true });
     res.json({ success: true });
 }));
 

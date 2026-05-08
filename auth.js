@@ -46,7 +46,11 @@ async function requireAdmin(req, res) {
 
 async function getPermisos(rol) {
     const [rows] = await pool.query('SELECT permisos FROM roles WHERE nombre=? LIMIT 1', [rol]);
-    if (rows.length) { try { return JSON.parse(rows[0].permisos); } catch { return []; } }
+    if (rows.length) {
+        const p = rows[0].permisos;
+        if (Array.isArray(p)) return p;
+        try { return JSON.parse(p); } catch { return []; }
+    }
     // Fallback solo para roles built-in que no estén en la tabla
     return rol === 'administrador'
         ? ['Dashboard','Mensajes','Historial','Blog','Servicios','Analíticas','Usuarios','Contexto IA']

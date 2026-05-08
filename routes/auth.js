@@ -11,8 +11,8 @@ const SESSION_MAX_AGE = 8 * 3600 * 1000; // 8 horas
 
 const COOKIE_OPTS = {
     httpOnly: true,
-    sameSite: 'lax',
-    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'none',
+    secure:   true,
     maxAge:   SESSION_MAX_AGE,
     path:     '/',
 };
@@ -20,8 +20,8 @@ const COOKIE_OPTS = {
 // Cookie CSRF: NO httpOnly para que el frontend pueda leerla y enviarla como header
 const CSRF_COOKIE_OPTS = {
     httpOnly: false,
-    sameSite: 'lax',
-    secure:   process.env.NODE_ENV === 'production',
+    sameSite: 'none',
+    secure:   true,
     maxAge:   SESSION_MAX_AGE,
     path:     '/',
 };

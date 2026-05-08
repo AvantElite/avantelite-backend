@@ -10,7 +10,7 @@ router.get('/listar', asyncHandler(async (req, res) => {
     const [rows] = await pool.query('SELECT id,nombre,permisos,created_at FROM roles ORDER BY nombre');
     res.json(rows.map(r => ({
         ...r,
-        permisos: (() => { try { return JSON.parse(r.permisos); } catch { return []; } })(),
+        permisos: (() => { const p = r.permisos; if (Array.isArray(p)) return p; try { return JSON.parse(p); } catch { return []; } })(),
     })));
 }));
 

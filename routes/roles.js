@@ -1,17 +1,13 @@
 const { Router } = require('express');
-const pool   = require('../db');
-const { asyncHandler }  = require('../helpers');
-const { requireAdmin }  = require('../auth');
+const { roles } = require('../db/index');
+const { asyncHandler } = require('../helpers');
+const { requireAdmin } = require('../auth');
 
 const router = Router();
 
 router.get('/listar', asyncHandler(async (req, res) => {
     if (!await requireAdmin(req, res)) return;
-    const [rows] = await pool.query('SELECT id,nombre,permisos,created_at FROM roles ORDER BY nombre');
-    res.json(rows.map(r => ({
-        ...r,
-        permisos: (() => { const p = r.permisos; if (Array.isArray(p)) return p; try { return JSON.parse(p); } catch { return []; } })(),
-    })));
+    res.json(await roles.list());
 }));
 
 router.post('/crear', asyncHandler(async (req, res) => {
@@ -19,13 +15,9 @@ router.post('/crear', asyncHandler(async (req, res) => {
     const nombre   = (req.body.nombre ?? '').trim();
     const permisos = req.body.permisos ?? [];
     if (!nombre) return res.status(400).json({ error: 'Nombre requerido.' });
-    const [dup] = await pool.query('SELECT id FROM roles WHERE nombre=? LIMIT 1', [nombre]);
-    if (dup.length) return res.status(400).json({ error: 'Ese rol ya existe.' });
-    const [result] = await pool.query(
-        'INSERT INTO roles (nombre,permisos) VALUES (?,?)',
-        [nombre, JSON.stringify(permisos)]
-    );
-    res.json({ success: true, id: result.insertId });
+    if (await roles.findByName(nombre)) return res.status(400).json({ error: 'Ese rol ya existe.' });
+    const id = await roles.create(nombre, permisos);
+    res.json({ success: true, id });
 }));
 
 router.post('/actualizar', asyncHandler(async (req, res) => {
@@ -33,7 +25,7 @@ router.post('/actualizar', asyncHandler(async (req, res) => {
     const id       = parseInt(req.body.id ?? 0);
     const permisos = req.body.permisos ?? [];
     if (!id) return res.status(400).json({ error: 'ID inválido.' });
-    await pool.query('UPDATE roles SET permisos=? WHERE id=?', [JSON.stringify(permisos), id]);
+    await roles.updatePermisos(id, permisos);
     res.json({ success: true });
 }));
 
@@ -41,7 +33,7 @@ router.post('/eliminar', asyncHandler(async (req, res) => {
     if (!await requireAdmin(req, res)) return;
     const id = parseInt(req.body.id ?? 0);
     if (!id) return res.status(400).json({ error: 'ID inválido.' });
-    await pool.query('DELETE FROM roles WHERE id=?', [id]);
+    await roles.remove(id);
     res.json({ success: true });
 }));
 

@@ -1,4 +1,4 @@
-const pool = require('./db');
+const { appConfig } = require('./db/index');
 
 const OLLAMA_BASE = process.env.OLLAMA_URL || 'http://localhost:11434';
 
@@ -11,11 +11,8 @@ function extractJson(text) {
 }
 
 async function getAiConfig() {
-    try {
-        const [rows] = await pool.query("SELECT valor FROM app_config WHERE clave='ia_config' LIMIT 1");
-        if (rows.length) return JSON.parse(rows[0].valor);
-    } catch {}
-    return null;
+    try { return await appConfig.getJson('ia_config'); }
+    catch { return null; }
 }
 
 async function aiGenerate(prompt, maxTokens = 2048) {

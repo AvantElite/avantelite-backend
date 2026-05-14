@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const pool   = require('../db');
+const { contactos } = require('../db/index');
 const { asyncHandler } = require('../helpers');
 const { sendMail, emailShell, esc, nl2br, confirmationEmailHtml } = require('../mailer');
 
@@ -19,10 +19,7 @@ router.post('/contacto', asyncHandler(async (req, res) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
         return res.status(400).json({ error: 'Email inválido.' });
 
-    await pool.query(
-        'INSERT INTO contactos (nombre,apellido,email,telefono,producto,problema,mensaje,origen) VALUES (?,?,?,?,?,?,?,?)',
-        [nombre, apellido, email, telefono, producto, problema, mensaje, origen_sitio]
-    );
+    await contactos.createFromForm({ nombre, apellido, email, telefono, producto, problema, mensaje, origen: origen_sitio });
     const body = confirmationEmailHtml({ nombre, apellido, producto, problema });
     try { await sendMail({ to: email, toName: `${nombre} ${apellido}`, subject: 'Hemos recibido tu consulta — AvantService', html: body }); }
     catch (e) { console.error('Email confirmation error:', e.message); }
@@ -35,11 +32,8 @@ router.post('/api/diy', asyncHandler(async (req, res) => {
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !['facil','medio','dificil'].includes(nivel))
         return res.status(400).json({ error: 'Datos inválidos.' });
 
-    const [result] = await pool.query(
-        "INSERT INTO contactos (email,mensaje,dificultad,origen,tipo) VALUES (?,?,?,'DIY','diy')",
-        [email, mensaje, nivel]
-    );
-    if (!result.affectedRows) return res.status(500).json({ error: 'Error al guardar.' });
+    const newId = await contactos.createDiy({ email, mensaje, dificultad: nivel });
+    if (!newId) return res.status(500).json({ error: 'Error al guardar.' });
 
     const nl = { facil:'Fácil', medio:'Medio', dificil:'Difícil' }[nivel];
 

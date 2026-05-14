@@ -1,22 +1,19 @@
 const path    = require('path');
 const { uploadBuffer } = require('../cloudinary');
 const { Router } = require('express');
-const pool    = require('../db');
-const { asyncHandler }            = require('../helpers');
-const { requireAuth }             = require('../auth');
-
-async function checkPortalSession(pt, presupuestoToken) {
-    if (!pt) return false;
-    const [rows] = await pool.query(
-        'SELECT presupuesto_token FROM portal_sesiones WHERE token=? AND expires_at > NOW() LIMIT 1',
-        [pt]
-    );
-    return rows.length && rows[0].presupuesto_token === presupuestoToken;
-}
+const { chat, presupuestos, sesiones, rag } = require('../db/index');
+const { asyncHandler } = require('../helpers');
+const { requireAuth }  = require('../auth');
 const { aiGenerate, extractJson } = require('../ai');
 const { upload, ALLOWED_CHAT_EXTENSIONS, validateMagicBytes } = require('../upload');
 
 const router = Router();
+
+async function checkPortalSession(pt, presupuestoToken) {
+    if (!pt) return false;
+    const row = await sesiones.findPortalSessionByToken(pt);
+    return !!row && row.presupuesto_token === presupuestoToken;
+}
 
 router.get('/', asyncHandler(async (req, res) => {
     const token = (req.query.token ?? '').trim();
@@ -31,12 +28,9 @@ router.get('/', asyncHandler(async (req, res) => {
             return res.status(401).json({ error: 'No autorizado.' });
     }
 
-    const [msgs]  = await pool.query(
-        'SELECT sender,sender_nombre,mensaje,archivo,created_at FROM chat_mensajes WHERE token=? ORDER BY created_at ASC',
-        [token]
-    );
-    const [[pres]] = await pool.query('SELECT chat_cerrado FROM presupuestos WHERE token=? LIMIT 1', [token]);
-    res.json({ mensajes: msgs, cerrado: pres?.chat_cerrado === 1 });
+    const msgs = await chat.listMensajes(token);
+    const pres = await presupuestos.findChatCerrado(token);
+    res.json({ mensajes: msgs, cerrado: pres?.chat_cerrado === 1 || pres?.chat_cerrado === true });
 }));
 
 router.post('/enviar', asyncHandler(async (req, res) => {
@@ -54,21 +48,19 @@ router.post('/enviar', asyncHandler(async (req, res) => {
             return res.status(401).json({ error: 'No autorizado.' });
     }
 
-    const [chk] = await pool.query('SELECT id, chat_cerrado FROM presupuestos WHERE token=?', [token]);
-    if (!chk.length) return res.status(404).json({ error: 'Token inválido' });
-    if (chk[0].chat_cerrado) return res.status(403).json({ error: 'Este chat está cerrado.' });
-    const [result] = await pool.query(
-        'INSERT INTO chat_mensajes (token,sender,mensaje) VALUES (?,?,?)',
-        [token, sender, mensaje.trim()]
-    );
-    res.json({ success: true, id: result.insertId });
+    const chk = await presupuestos.findIdAndCerrado(token);
+    if (!chk) return res.status(404).json({ error: 'Token inválido' });
+    if (chk.chat_cerrado === 1 || chk.chat_cerrado === true)
+        return res.status(403).json({ error: 'Este chat está cerrado.' });
+    const id = await chat.insertMensaje({ token, sender, mensaje: mensaje.trim() });
+    res.json({ success: true, id });
 }));
 
 router.post('/cerrar', asyncHandler(async (req, res) => {
     if (!await requireAuth(req, res)) return;
     const token = (req.body.token ?? '').trim();
     if (!token) return res.status(400).json({ error: 'Token requerido.' });
-    await pool.query('UPDATE presupuestos SET chat_cerrado=1 WHERE token=?', [token]);
+    await presupuestos.setChatCerrado(token, true);
     res.json({ success: true });
 }));
 
@@ -76,7 +68,7 @@ router.post('/reabrir', asyncHandler(async (req, res) => {
     if (!await requireAuth(req, res)) return;
     const token = (req.body.token ?? '').trim();
     if (!token) return res.status(400).json({ error: 'Token requerido.' });
-    await pool.query('UPDATE presupuestos SET chat_cerrado=0 WHERE token=?', [token]);
+    await presupuestos.setChatCerrado(token, false);
     res.json({ success: true });
 }));
 
@@ -84,30 +76,13 @@ router.post('/etiquetas', asyncHandler(async (req, res) => {
     if (!await requireAuth(req, res)) return;
     const { token='', etiquetas=[] } = req.body;
     if (!token) return res.status(400).json({ error: 'Token requerido.' });
-    await pool.query('UPDATE presupuestos SET etiquetas=? WHERE token=?', [JSON.stringify(etiquetas), token]);
+    await presupuestos.setEtiquetas(token, etiquetas);
     res.json({ success: true, etiquetas });
 }));
 
 router.get('/historial', asyncHandler(async (req, res) => {
     if (!await requireAuth(req, res)) return;
-    const [rows] = await pool.query(`
-        SELECT p.token, p.contacto_id, p.chat_cerrado, p.etiquetas, p.created_at AS presupuesto_fecha,
-               c.nombre, c.apellido, c.email,
-               COUNT(m.id)         AS total_mensajes,
-               MAX(m.mensaje)      AS ultimo_mensaje,
-               MAX(m.created_at)   AS ultima_fecha
-        FROM presupuestos p
-        JOIN contactos c ON c.id = p.contacto_id
-        LEFT JOIN chat_mensajes m ON m.token = p.token
-        GROUP BY p.token
-        ORDER BY ultima_fecha DESC, p.created_at DESC
-    `);
-    res.json(rows.map(r => ({
-        ...r,
-        chat_cerrado:   r.chat_cerrado === 1,
-        etiquetas:      (() => { try { return JSON.parse(r.etiquetas ?? '[]'); } catch { return []; } })(),
-        total_mensajes: parseInt(r.total_mensajes ?? 0),
-    })));
+    res.json(await chat.listHistorial());
 }));
 
 router.post('/upload', upload.single('archivo'), asyncHandler(async (req, res) => {
@@ -135,11 +110,8 @@ router.post('/upload', upload.single('archivo'), asyncHandler(async (req, res) =
         archivoUrl = result.secure_url;
     }
 
-    const [result] = await pool.query(
-        'INSERT INTO chat_mensajes (token,sender,mensaje,archivo) VALUES (?,?,?,?)',
-        [token, sender, mensaje.trim(), archivoUrl]
-    );
-    res.json({ success: true, id: result.insertId, archivo: archivoUrl });
+    const id = await chat.insertMensaje({ token, sender, mensaje: mensaje.trim(), archivo: archivoUrl });
+    res.json({ success: true, id, archivo: archivoUrl });
 }));
 
 router.post('/sugerir', asyncHandler(async (req, res) => {
@@ -147,13 +119,9 @@ router.post('/sugerir', asyncHandler(async (req, res) => {
     const { token='', borrador='', rag_modo='' } = req.body;
     if (!token) return res.status(400).json({ error: 'Token requerido.' });
 
-    const [msgs] = await pool.query(
-        'SELECT sender, mensaje FROM chat_mensajes WHERE token=? ORDER BY created_at ASC LIMIT 30',
-        [token]
-    );
+    const msgs = await chat.listMensajesParaIA(token, 30);
     if (!msgs.length) return res.status(400).json({ error: 'Sin mensajes en el chat.' });
 
-    // Sanitizar mensajes: eliminar caracteres de control y truncar para evitar prompt injection
     const sanitizeMsg = (s) => String(s ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 1000);
     const transcript = msgs
         .map(m => `${m.sender === 'cliente' ? 'Cliente' : 'Técnico'}: ${sanitizeMsg(m.mensaje)}`)
@@ -162,14 +130,13 @@ router.post('/sugerir', asyncHandler(async (req, res) => {
     let ragContext  = '';
     let referencias = [];
     if (rag_modo !== 'ninguno') {
-        const [ragRows] = await pool.query('SELECT id, titulo, categoria, contenido FROM rag_knowledge ORDER BY created_at DESC LIMIT 5');
+        const ragRows = await rag.topRecientes(5);
         if (ragRows.length) {
             ragContext  = ragRows.map((r, i) => `[REF-${i+1}] ### ${r.titulo}\n${r.contenido}`).join('\n\n');
             referencias = ragRows.map((r, i) => ({ ref: `REF-${i+1}`, id: r.id, titulo: r.titulo, categoria: r.categoria ?? 'General' }));
         }
     }
 
-    // Instrucciones del sistema separadas de los datos de usuario para mitigar prompt injection
     const systemPart = [
         'Eres un técnico de servicio de electrónica.',
         'Genera exactamente 3 sugerencias de respuesta para el técnico basándote en la conversación proporcionada.',
@@ -205,17 +172,10 @@ router.post('/extraer_contexto', asyncHandler(async (req, res) => {
     const { token='' } = req.body;
     if (!token) return res.status(400).json({ error: 'Token requerido.' });
 
-    const [msgs] = await pool.query(
-        'SELECT sender, mensaje FROM chat_mensajes WHERE token=? ORDER BY created_at ASC',
-        [token]
-    );
+    const msgs = await chat.listMensajes(token);
     if (!msgs.length) return res.json({ entradas: [] });
 
-    const [presRows] = await pool.query(
-        'SELECT c.nombre, c.apellido, c.producto, c.problema FROM presupuestos p JOIN contactos c ON c.id=p.contacto_id WHERE p.token=? LIMIT 1',
-        [token]
-    );
-    const contacto = presRows[0];
+    const contacto = await presupuestos.findContactoBasicoByPresupuestoToken(token);
 
     const sanitizeMsg = (s) => String(s ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 1000);
     const transcript = msgs

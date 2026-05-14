@@ -1,8 +1,8 @@
 const path    = require('path');
 const { Router } = require('express');
-const pool    = require('../db');
-const { asyncHandler, slugify, uniqueSlug } = require('../helpers');
-const { requireAuth, requireAdmin } = require('../auth');
+const { blog } = require('../db/index');
+const { asyncHandler, slugify } = require('../helpers');
+const { requireAdmin } = require('../auth');
 const { upload, ALLOWED_IMAGE_EXTENSIONS, validateMagicBytes } = require('../upload');
 const { uploadBuffer } = require('../cloudinary');
 
@@ -12,72 +12,52 @@ router.get('/', asyncHandler(async (req, res) => {
     const { slug='', categoria='', destacado, panel } = req.query;
 
     if (slug) {
-        const [rows] = await pool.query("SELECT * FROM blog_posts WHERE slug=? AND publicado=1 LIMIT 1", [slug]);
-        return rows.length ? res.json(rows[0]) : res.status(404).json({ error: 'No encontrado' });
+        const post = await blog.findBySlugPublicado(slug);
+        return post ? res.json(post) : res.status(404).json({ error: 'No encontrado' });
     }
 
     if (panel !== undefined) {
         if (!await requireAdmin(req, res)) return;
-        const [rows] = await pool.query("SELECT * FROM blog_posts ORDER BY fecha DESC, creado_en DESC");
-        return res.json(rows.map(r => ({ ...r, publicado: !!r.publicado, destacado: !!r.destacado })));
+        return res.json(await blog.listAdmin());
     }
 
-    let q      = 'SELECT id,titulo,slug,categoria,resumen,emoji,destacado,fecha FROM blog_posts WHERE publicado=1';
-    const params = [];
-    if (categoria)           { q += ' AND categoria=?'; params.push(categoria); }
-    if (destacado !== undefined) q += ' AND destacado=1';
-    q += ' ORDER BY destacado DESC, fecha DESC';
-
-    const [rows] = await pool.query(q, params);
-    res.json(rows);
+    res.json(await blog.listPublicos({ categoria, soloDestacado: destacado !== undefined }));
 }));
 
 router.post('/', asyncHandler(async (req, res) => {
     if (!await requireAdmin(req, res)) return;
     const { titulo='', categoria='General', resumen='', contenido='', emoji='🛠️', fecha=new Date().toISOString().slice(0,10) } = req.body;
-    const destacado = req.body.destacado ? 1 : 0;
-    const publicado = req.body.publicado ? 1 : 0;
+    const destacado = !!req.body.destacado;
+    const publicado = !!req.body.publicado;
     const slug      = (req.body.slug ?? '').trim();
 
     if (!titulo || !contenido) return res.status(400).json({ error: 'Título y contenido son obligatorios.' });
 
-    const db = await pool.getConnection();
-    try {
-        const slugFinal = await uniqueSlug(db, slug || slugify(titulo));
-        const [result]  = await db.query(
-            'INSERT INTO blog_posts (titulo,slug,categoria,resumen,contenido,emoji,destacado,publicado,fecha) VALUES (?,?,?,?,?,?,?,?,?)',
-            [titulo, slugFinal, categoria, resumen, contenido, emoji, destacado, publicado, fecha]
-        );
-        res.json({ id: result.insertId, slug: slugFinal, success: true });
-    } finally { db.release(); }
+    const slugFinal = await blog.uniqueSlug(slug || slugify(titulo));
+    const id = await blog.create({ titulo, slug: slugFinal, categoria, resumen, contenido, emoji, destacado, publicado, fecha });
+    res.json({ id, slug: slugFinal, success: true });
 }));
 
 router.put('/', asyncHandler(async (req, res) => {
     if (!await requireAdmin(req, res)) return;
     const id = parseInt(req.body.id ?? 0);
     const { titulo='', categoria='General', resumen='', contenido='', emoji='🛠️', fecha=new Date().toISOString().slice(0,10) } = req.body;
-    const destacado = req.body.destacado ? 1 : 0;
-    const publicado = req.body.publicado ? 1 : 0;
+    const destacado = !!req.body.destacado;
+    const publicado = !!req.body.publicado;
     const slug      = (req.body.slug ?? '').trim();
 
     if (!id || !titulo || !contenido) return res.status(400).json({ error: 'ID, título y contenido son obligatorios.' });
 
-    const db = await pool.getConnection();
-    try {
-        const slugFinal = await uniqueSlug(db, slug || slugify(titulo), id);
-        await db.query(
-            'UPDATE blog_posts SET titulo=?,slug=?,categoria=?,resumen=?,contenido=?,emoji=?,destacado=?,publicado=?,fecha=? WHERE id=?',
-            [titulo, slugFinal, categoria, resumen, contenido, emoji, destacado, publicado, fecha, id]
-        );
-        res.json({ success: true, slug: slugFinal });
-    } finally { db.release(); }
+    const slugFinal = await blog.uniqueSlug(slug || slugify(titulo), id);
+    await blog.update(id, { titulo, slug: slugFinal, categoria, resumen, contenido, emoji, destacado, publicado, fecha });
+    res.json({ success: true, slug: slugFinal });
 }));
 
 router.delete('/', asyncHandler(async (req, res) => {
     if (!await requireAdmin(req, res)) return;
     const id = parseInt(req.body.id ?? 0);
     if (!id) return res.status(400).json({ error: 'ID inválido.' });
-    await pool.query('DELETE FROM blog_posts WHERE id=?', [id]);
+    await blog.remove(id);
     res.json({ success: true });
 }));
 

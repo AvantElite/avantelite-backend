@@ -1,5 +1,5 @@
 const https = require('https');
-const pool = require('./db');
+const { blog } = require('./db/index');
 
 // ── Async wrapper ─────────────────────────────────────────────────────────────
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
@@ -12,18 +12,9 @@ function slugify(text) {
         .replace(/[\s-]+/g, '-').trim() || 'post';
 }
 
-async function uniqueSlug(db, base, excludeId = 0) {
-    let slug = base, counter = 1;
-    while (true) {
-        const q = excludeId > 0
-            ? 'SELECT id FROM blog_posts WHERE slug=? AND id!=? LIMIT 1'
-            : 'SELECT id FROM blog_posts WHERE slug=? LIMIT 1';
-        const params = excludeId > 0 ? [slug, excludeId] : [slug];
-        const [rows] = await db.query(q, params);
-        if (rows.length === 0) return slug;
-        slug = base + '-' + counter++;
-    }
-}
+// Re-exporta uniqueSlug para compatibilidad con código existente.
+// Nuevo código debería importarlo de './db/blog' directamente.
+const uniqueSlug = (_dbIgnored, base, excludeId = 0) => blog.uniqueSlug(base, excludeId);
 
 // ── User-agent parsing ────────────────────────────────────────────────────────
 function parseBrowser(ua = '') {

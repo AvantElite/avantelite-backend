@@ -1,6 +1,6 @@
 const crypto  = require('crypto');
 const { Router } = require('express');
-const pool    = require('../db');
+const { presupuestos, sesiones, contactos, chat } = require('../db/index');
 const { asyncHandler } = require('../helpers');
 const { requireAuth, requirePortalAuth } = require('../auth');
 const { aiGenerate, extractJson } = require('../ai');
@@ -14,28 +14,21 @@ router.post('/portal/login', asyncHandler(async (req, res) => {
     const email = (req.body.email ?? '').trim().toLowerCase();
     if (!token || !email) return res.status(400).json({ error: 'Datos inválidos.' });
 
-    const [rows] = await pool.query(
-        'SELECT p.*,c.email,c.nombre,c.apellido FROM presupuestos p JOIN contactos c ON c.id=p.contacto_id WHERE p.token=? LIMIT 1',
-        [token]
-    );
-    const r       = rows[0];
+    const r       = await presupuestos.findByTokenWithContacto(token);
     const emailBD = (r?.email ?? '').trim().toLowerCase();
     if (!r || (emailBD && emailBD !== email))
         return res.status(401).json({ error: 'Enlace o correo inválidos.' });
 
     const portalToken = crypto.randomBytes(32).toString('hex');
     const expiresAt   = new Date(Date.now() + 24 * 3600 * 1000);
-    await pool.query(
-        'INSERT INTO portal_sesiones (token, presupuesto_token, expires_at) VALUES (?, ?, ?)',
-        [portalToken, token, expiresAt]
-    );
+    await sesiones.createPortalSession(portalToken, token, expiresAt);
 
     res.json({
         success:      true,
         portal_token: portalToken,
         presupuesto: {
             nombre:  `${r.nombre ?? ''} ${r.apellido ?? ''}`.trim(),
-            lineas:  JSON.parse(r.lineas ?? '[]'),
+            lineas:  presupuestos.parseLineas(r.lineas),
             total:   parseFloat(r.total ?? 0),
             mensaje: r.mensaje ?? '',
             notas:   r.notas ?? '',
@@ -53,16 +46,12 @@ router.get('/presupuesto', asyncHandler(async (req, res) => {
     const adminToken = (req.headers['x-token'] ?? '').trim();
     if (adminToken) {
         if (!await requireAuth(req, res)) return;
-        const [rows] = await pool.query(
-            'SELECT p.*,c.email,c.nombre,c.apellido FROM presupuestos p JOIN contactos c ON c.id=p.contacto_id WHERE p.token=?',
-            [token]
-        );
-        if (!rows.length) return res.status(404).json({ error: 'Presupuesto no encontrado.' });
-        const r = rows[0];
+        const r = await presupuestos.findByTokenWithContacto(token);
+        if (!r) return res.status(404).json({ error: 'Presupuesto no encontrado.' });
         return res.json({
             email:   r.email,
             nombre:  `${r.nombre ?? ''} ${r.apellido ?? ''}`.trim(),
-            lineas:  JSON.parse(r.lineas ?? '[]'),
+            lineas:  presupuestos.parseLineas(r.lineas),
             total:   parseFloat(r.total ?? 0),
             mensaje: r.mensaje ?? '',
             notas:   r.notas ?? '',
@@ -75,15 +64,11 @@ router.get('/presupuesto', asyncHandler(async (req, res) => {
     if (!session || session.presupuestoToken !== token)
         return res.status(401).json({ error: 'No autorizado.' });
 
-    const [rows] = await pool.query(
-        'SELECT p.*,c.nombre,c.apellido FROM presupuestos p JOIN contactos c ON c.id=p.contacto_id WHERE p.token=?',
-        [token]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Presupuesto no encontrado.' });
-    const r = rows[0];
+    const r = await presupuestos.findByTokenWithContacto(token);
+    if (!r) return res.status(404).json({ error: 'Presupuesto no encontrado.' });
     res.json({
         nombre:  `${r.nombre ?? ''} ${r.apellido ?? ''}`.trim(),
-        lineas:  JSON.parse(r.lineas ?? '[]'),
+        lineas:  presupuestos.parseLineas(r.lineas),
         total:   parseFloat(r.total ?? 0),
         mensaje: r.mensaje ?? '',
         notas:   r.notas ?? '',
@@ -101,20 +86,19 @@ router.post('/presupuesto/enviar', asyncHandler(async (req, res) => {
 
     const token        = crypto.randomBytes(32).toString('hex');
     const PORTAL_BASE  = process.env.PORTAL_URL || 'http://localhost/backendavant/portal.html';
-    // Whitelist: solo se permiten orígenes conocidos para evitar phishing en emails
     const ALLOWED_PORTAL_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
     try {
         const u = new URL(PORTAL_BASE);
         if (ALLOWED_PORTAL_ORIGINS.length && !ALLOWED_PORTAL_ORIGINS.some(o => { try { return new URL(o).origin === u.origin; } catch { return false; } }))
             throw new Error('PORTAL_URL no está entre los orígenes permitidos (ALLOWED_ORIGINS).');
-    } catch (e) { if (e.message.includes('PORTAL_URL')) throw e; /* URL mal formada — continuar con default */ }
+    } catch (e) { if (e.message.includes('PORTAL_URL')) throw e; }
     const portalUrl = `${PORTAL_BASE}?token=${token}`;
 
     if (parseInt(contacto_id)) {
-        await pool.query(
-            'INSERT INTO presupuestos (contacto_id,token,lineas,total,mensaje,notas) VALUES (?,?,?,?,?,?)',
-            [parseInt(contacto_id), token, JSON.stringify(lineas), parseFloat(total), mensaje, notas]
-        );
+        await presupuestos.create({
+            contacto_id: parseInt(contacto_id),
+            token, lineas, total: parseFloat(total), mensaje, notas,
+        });
     }
 
     const lineasHtml = (lineas || []).map(l => {
@@ -163,13 +147,10 @@ router.post('/presupuesto/aceptar', asyncHandler(async (req, res) => {
     const accion = (req.body.accion ?? '').trim();
     if (!token || !['aceptado','rechazado'].includes(accion))
         return res.status(400).json({ error: 'Datos inválidos.' });
-    const [result] = await pool.query(
-        "UPDATE presupuestos SET estado=?,fecha_respuesta=NOW() WHERE token=? AND estado='pendiente'",
-        [accion, token]
-    );
-    result.affectedRows === 0
-        ? res.json({ success: false, message: 'El presupuesto ya fue respondido o no existe.' })
-        : res.json({ success: true, estado: accion });
+    const ok = await presupuestos.setEstadoSiPendiente(token, accion);
+    ok
+        ? res.json({ success: true, estado: accion })
+        : res.json({ success: false, message: 'El presupuesto ya fue respondido o no existe.' });
 }));
 
 // ── POST /api/presupuesto/rechazar ────────────────────────────────────────────
@@ -226,18 +207,11 @@ router.post('/presupuesto/actualizar', asyncHandler(async (req, res) => {
     const { token='', lineas=[], total=0, mensaje='', notas='' } = req.body;
     if (!token) return res.status(400).json({ error: 'Token requerido.' });
 
-    const [rows] = await pool.query(
-        'SELECT p.*,c.email,c.nombre,c.apellido FROM presupuestos p JOIN contactos c ON c.id=p.contacto_id WHERE p.token=?',
-        [token]
-    );
-    if (!rows.length) return res.status(404).json({ error: 'Presupuesto no encontrado.' });
+    const r = await presupuestos.findByTokenWithContacto(token);
+    if (!r) return res.status(404).json({ error: 'Presupuesto no encontrado.' });
 
-    await pool.query(
-        'UPDATE presupuestos SET lineas=?,total=?,mensaje=?,notas=? WHERE token=?',
-        [JSON.stringify(lineas), parseFloat(total), mensaje, notas, token]
-    );
+    await presupuestos.update(token, { lineas, total: parseFloat(total), mensaje, notas });
 
-    const r        = rows[0];
     const nombre   = `${r.nombre ?? ''} ${r.apellido ?? ''}`.trim() || r.email;
     const portalUrl = `${process.env.PORTAL_URL || 'http://localhost/backendavant/portal.html'}?token=${token}`;
 
@@ -279,28 +253,18 @@ router.post('/presupuesto/sugerir', asyncHandler(async (req, res) => {
     let chatMensajes = [];
 
     if (token) {
-        const [rows] = await pool.query(
-            'SELECT c.*, p.token AS chat_token FROM presupuestos p JOIN contactos c ON c.id=p.contacto_id WHERE p.token=?',
-            [token]
-        );
-        if (rows.length) contacto = rows[0];
+        contacto = await presupuestos.findContactoByPresupuestoToken(token);
     } else if (contacto_id) {
-        const [rows] = await pool.query('SELECT * FROM contactos WHERE id=?', [contacto_id]);
-        if (rows.length) contacto = rows[0];
+        contacto = await contactos.findById(parseInt(contacto_id));
     }
 
     if (!contacto) return res.status(404).json({ error: 'Contacto no encontrado.' });
 
     const chatToken = token || contacto.chat_token;
     if (chatToken) {
-        const [msgs] = await pool.query(
-            'SELECT sender, mensaje FROM chat_mensajes WHERE token=? ORDER BY created_at ASC LIMIT 40',
-            [chatToken]
-        );
-        chatMensajes = msgs;
+        chatMensajes = await chat.listMensajesParaIA(chatToken, 40);
     }
 
-    // Elimina secuencias que podrían romper la estructura del prompt (prompt injection)
     const sanitizeForPrompt = (s) => String(s ?? '').replace(/[<>]/g, '').replace(/\bignora\b|\bolvida\b|\bsystem\b|\bprompt\b/gi, '[...]').slice(0, 500);
 
     const chatTranscript = chatMensajes.length

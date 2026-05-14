@@ -1,5 +1,5 @@
 const { Router } = require('express');
-const pool   = require('../db');
+const { averias } = require('../db/index');
 const { asyncHandler }            = require('../helpers');
 const { requireAuth }             = require('../auth');
 const { aiGenerate, extractJson } = require('../ai');
@@ -8,8 +8,7 @@ const router = Router();
 
 router.get('/', asyncHandler(async (req, res) => {
     if (!await requireAuth(req, res)) return;
-    const [rows] = await pool.query('SELECT * FROM averias_resueltas ORDER BY created_at DESC');
-    res.json({ averias: rows });
+    res.json({ averias: await averias.list() });
 }));
 
 router.post('/extraer', asyncHandler(async (req, res) => {
@@ -17,16 +16,7 @@ router.post('/extraer', asyncHandler(async (req, res) => {
 
     let chats;
     try {
-        [chats] = await pool.query(`
-            SELECT p.token, p.total, p.etiquetas,
-                   GROUP_CONCAT(pl.descripcion SEPARATOR ', ') AS lineas_desc
-            FROM presupuestos p
-            LEFT JOIN JSON_TABLE(p.lineas, '$[*]' COLUMNS (descripcion VARCHAR(500) PATH '$.descripcion')) pl ON TRUE
-            WHERE p.chat_cerrado = 1
-              AND p.token NOT IN (SELECT chat_token FROM averias_resueltas)
-            GROUP BY p.token, p.total, p.etiquetas
-            LIMIT 20
-        `);
+        chats = await averias.listChatsCandidatos(20);
     } catch (e) {
         console.error('[averias/extraer] query inicial:', e.message);
         return res.status(500).json({ error: e.message });
@@ -37,10 +27,7 @@ router.post('/extraer', asyncHandler(async (req, res) => {
     let procesados = 0;
     for (const chat of chats) {
         const { token } = chat;
-        const [msgs] = await pool.query(
-            'SELECT sender, mensaje FROM chat_mensajes WHERE token=? ORDER BY created_at ASC LIMIT 80',
-            [token]
-        );
+        const msgs = await averias.getMensajesByToken(token, 80);
         const msgsTexto = msgs.filter(m => m.mensaje && m.mensaje.trim());
         if (!msgsTexto.length) continue;
 
@@ -52,8 +39,13 @@ router.post('/extraer', asyncHandler(async (req, res) => {
         const contexto = [];
         if (chat.lineas_desc) contexto.push(`Líneas del presupuesto: ${chat.lineas_desc}`);
         if (chat.total)       contexto.push(`Total presupuestado: ${chat.total} €`);
-        const etiquetas = (() => { try { const e = JSON.parse(chat.etiquetas ?? '[]'); return e.length ? e.join(', ') : null; } catch { return null; } })();
-        if (etiquetas)        contexto.push(`Etiquetas: ${etiquetas}`);
+        const etiquetas = (() => {
+            const e = chat.etiquetas;
+            if (Array.isArray(e)) return e.length ? e.join(', ') : null;
+            try { const x = JSON.parse(e ?? '[]'); return Array.isArray(x) && x.length ? x.join(', ') : null; }
+            catch { return null; }
+        })();
+        if (etiquetas) contexto.push(`Etiquetas: ${etiquetas}`);
 
         const prompt = [
             'Eres un asistente técnico especializado en reparación de electrónica.',
@@ -86,22 +78,14 @@ router.post('/extraer', asyncHandler(async (req, res) => {
                 const n = parseFloat(String(p.precio_reparacion).replace(/[^0-9.]/g, ''));
                 if (!isNaN(n)) precio = n;
             }
-            await pool.query(
-                `INSERT INTO averias_resueltas
-                    (chat_token, es_averia, marca, tipo_averia, modelo, funcion, resumen, descripcion, solucion, precio_reparacion)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                 ON DUPLICATE KEY UPDATE
-                    es_averia=VALUES(es_averia), marca=VALUES(marca), tipo_averia=VALUES(tipo_averia),
-                    modelo=VALUES(modelo), funcion=VALUES(funcion), resumen=VALUES(resumen),
-                    descripcion=VALUES(descripcion), solucion=VALUES(solucion), precio_reparacion=VALUES(precio_reparacion)`,
-                [
-                    token,
-                    p.es_averia ? 1 : 0,
-                    p.marca ?? null, p.tipo_averia ?? null, p.modelo ?? null, p.funcion ?? null,
-                    p.resumen ?? null, p.descripcion ?? null, p.solucion ?? null,
-                    precio,
-                ]
-            );
+            await averias.upsertExtraido({
+                chat_token: token,
+                es_averia: p.es_averia,
+                marca: p.marca ?? null, tipo_averia: p.tipo_averia ?? null,
+                modelo: p.modelo ?? null, funcion: p.funcion ?? null,
+                resumen: p.resumen ?? null, descripcion: p.descripcion ?? null,
+                solucion: p.solucion ?? null, precio_reparacion: precio,
+            });
             procesados++;
         } catch (e) { console.error(`[averias/extraer] token=${token}:`, e.message); }
     }
